@@ -1,13 +1,17 @@
 // Service Worker – Aufmaß-Assistent Tischlerei Prigge
-// Macht die App offline nutzbar: Beim ersten Öffnen mit Netz werden alle Dateien im Gerät abgelegt.
-// Seiten: erst Netz (damit neue Versionen ankommen), ohne Netz die gespeicherte Fassung.
-// Bei einer neuen Dateiversion genügt es, die Dateien auf GitHub zu ersetzen; VERSION nur ändern,
-// wenn alte Zwischenspeicher sicher verworfen werden sollen.
-const VERSION = 'aufmass-v1';
+// Offline-Betrieb: Beim ersten Öffnen mit Netz werden alle Dateien im Gerät abgelegt.
+// Die App startet IMMER sofort aus dem Gerätespeicher (auch im Flugmodus oder bei schlechtem Netz) und
+// holt sich im Hintergrund die neueste Version, die beim nächsten Start aktiv ist.
+// Bei einer neuen Dateiversion genügt es, die Dateien auf GitHub zu ersetzen.
+// VERSION nur ändern, wenn der alte Zwischenspeicher sicher verworfen werden soll.
+const VERSION = 'aufmass-v2';
 const DATEIEN = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSION)
+      .then(c => c.addAll(DATEIEN.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -19,12 +23,24 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then(r => { const k = r.clone(); caches.open(VERSION).then(c => c.put('index.html', k)); return r; })
-        .catch(() => caches.match('index.html').then(r => r || caches.match('./'))));
+    // Seite: sofort aus dem Speicher; Aktualisierung im Hintergrund (ohne Netz still ignoriert)
+    e.respondWith(caches.match('index.html', { ignoreSearch: true }).then(gespeichert => {
+      const netz = fetch(req).then(r => {
+        if (r && r.ok) { const k = r.clone(); caches.open(VERSION).then(c => c.put('index.html', k)); }
+        return r;
+      }).catch(() => null);
+      if (gespeichert) { e.waitUntil(netz); return gespeichert; }
+      return netz.then(r => r || new Response('Offline – bitte die App einmal mit Internet öffnen.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
+    }));
     return;
   }
+
+  // übrige Dateien (Symbole, Manifest): erst Speicher, sonst Netz
   e.respondWith(
-    caches.match(req).then(r => r || fetch(req).then(n => { const k = n.clone(); caches.open(VERSION).then(c => c.put(req, k)); return n; })));
+    caches.match(req, { ignoreSearch: true }).then(r => r || fetch(req).then(n => {
+      if (n && n.ok) { const k = n.clone(); caches.open(VERSION).then(c => c.put(req, k)); }
+      return n;
+    })));
 });

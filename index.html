@@ -352,6 +352,7 @@
             <th class="col-sm" rowspan="2" title="Sohlbank bzw. Boden außen bis Sturz innen (cm)">Maß<br>außen/innen</th>
             <th class="col-sm" rowspan="2">Sohlbank<br>innen (cm)</th>
             <th class="col-sm" rowspan="2">Sohlbank<br>außen (cm)</th>
+            <th class="col-sm" rowspan="2">Einbau</th>
             <th class="col-lg" rowspan="2" title="Es werden nur Profile der erforderlichen Ausladung angeboten">Fensterbank-<br>anschluss</th>
             <th colspan="2" class="bg-calc intern">Bestellmaß (mm)</th>
             <th class="col-lg intern" rowspan="2">Verbreiterung / Sohlbank</th>
@@ -361,12 +362,11 @@
             <th class="col-sm" rowspan="2">Falz-<br>lüfter</th>
             <th class="col-sm" rowspan="2">Beschlag</th>
             <th class="col-sm" rowspan="2" title="Wird erst bei 2-/3-flügeliger Öffnungsart freigegeben">Kopp-<br>lung</th>
-            <th class="col-sm" rowspan="2">☐ Roll-<br>laden</th>
-            <th class="col-sm" rowspan="2">☐ Insekten-<br>schutz</th>
-            <th class="col-sm" rowspan="2">Einbau</th>
             <th class="col-sm" rowspan="2">Durch-<br>gangsmaß</th>
             <th class="col-md" rowspan="2">Sprossen</th>
             <th class="col-md" rowspan="2">Sprossen-<br>aufteilung</th>
+            <th class="col-sm" rowspan="2">☐ Roll-<br>laden</th>
+            <th class="col-sm" rowspan="2">☐ Insekten-<br>schutz</th>
             <th class="col-xl" rowspan="2">Skizze / Hinweis</th>
             <th class="col-md" rowspan="2">📷 Foto</th>
             <th class="col-sm" rowspan="2">Stück</th>
@@ -551,6 +551,8 @@
         <thead>
           <tr>
             <th class="col-pos">Fenster-Pos. / Raum</th>
+            <th class="col-sm bg-out" title="Nur bei manuell angelegten Positionen: Breite des Fensters bzw. der Öffnung (Außenmaß)">Breite<br>(cm)</th>
+            <th class="col-sm bg-out" title="Nur bei manuell angelegten Positionen: Höhe des Fensters bzw. der Öffnung (Außenmaß)">Höhe<br>(cm)</th>
             <th class="col-md">Montageart</th>
             <th class="col-sm">Kasten-<br>größe</th>
             <th class="col-sm">Kasten-<br>höhe (cm)</th>
@@ -826,8 +828,9 @@ const DATA = {
   },
   farben: {
     'EGE': [
-      '__group:Standard-Folie (PG1)',
+      '__group:Weiß (Profilfarbe, ohne Folie)',
       'Weiß',
+      '__group:Standard-Folie (PG1)',
       'Anthrazitgrau (RAL 7016)',
       'Basaltgrau (RAL 7012)',
       'DB 703',
@@ -842,6 +845,7 @@ const DATA = {
       'Schokobraun',
       'Schwarzbraun',
       'Tannengrün',
+      'Weiß 9152 (RAL 9010)',   // weiße FOLIE, Sonderfolie PG2 (EGE-Liste 04/2025, Farbprogramm Foliendekore)
       'Cremeweiß (RAL 9001)',
       'Silbergrau (RAL 7001)',
       'Anthrazit Ulti Matt',
@@ -1984,6 +1988,12 @@ function addFensterPos() {
       oninput="onFensterMassChange(${id})" title="Sohlbank innen (cm)"></td>
     <td><input type="number" step="0.1" min="0" id="f-sohlba-${id}" placeholder="0"
       oninput="onFensterMassChange(${id})" title="Sohlbank außen (cm)"></td>
+    <td>
+      <select id="f-einbau-${id}" onchange="onFensterMassChange(${id})">
+        <option value="">–</option>
+        <option>innen</option><option>außen</option>
+      </select>
+    </td>
     <td class="col-lg"><select id="f-sbprof-${id}" style="width:100%;" disabled><option value="">–</option></select></td>
     <td class="bg-calc intern" style="text-align:center; padding:4px 3px;">
       <div class="calc-box" id="f-bestB-${id}">–</div>
@@ -2042,18 +2052,6 @@ function addFensterPos() {
         <option value="nein">Keine</option>
       </select>
     </td>
-    <td style="text-align:center;">
-      <input type="checkbox" id="f-rl-${id}" onchange="onRlCheck(${id}, this.checked)">
-    </td>
-    <td style="text-align:center;">
-      <input type="checkbox" id="f-is-${id}" onchange="onIsCheck(${id}, this.checked)">
-    </td>
-    <td>
-      <select id="f-einbau-${id}" onchange="onFensterMassChange(${id})">
-        <option value="">–</option>
-        <option>innen</option><option>außen</option>
-      </select>
-    </td>
     <td><input type="number" step="0.1" min="0" id="f-dg-${id}" placeholder="nur bei Tür" disabled style="background:#eee; text-align:right;"
       title="Durchgangsmaß (cm)"></td>
     <td>
@@ -2065,6 +2063,12 @@ function addFensterPos() {
       </select>
     </td>
     <td><input type="text" id="f-sprossena-${id}" placeholder="z.B. 3×2"></td>
+    <td style="text-align:center;">
+      <input type="checkbox" id="f-rl-${id}" onchange="onRlCheck(${id}, this.checked)">
+    </td>
+    <td style="text-align:center;">
+      <input type="checkbox" id="f-is-${id}" onchange="onIsCheck(${id}, this.checked)">
+    </td>
     <td class="col-xl"><input type="text" id="f-hint-${id}" placeholder="Hinweis / Skizze"></td>
     <td class="col-md">${fotoZelle('f' + id)}</td>
     <td class="col-sm"><input type="number" min="1" step="1" value="1" id="f-menge-${id}" style="width:48px;text-align:center;"></td>
@@ -3027,8 +3031,10 @@ function addRlPos(fensterPosId) {
   tr.innerHTML = `
     <td class="col-pos">
       <span id="${labelId}" style="font-weight:700; color:#1a3a5c; font-size:11.5px;">${labelTxt}</span>
-      ${linked ? '<div style="font-size:9.5px;color:#999;margin-top:1px;">🔗 aus Fenster-Reiter</div>' : ''}
+      ${linked ? '<div style="font-size:9.5px;color:#999;margin-top:1px;">🔗 aus Fenster-Reiter</div>' : `<input type="text" id="rl-raum-${id}" placeholder="Raum / Bezeichnung" style="margin-top:3px;width:100%;">`}
     </td>
+    ${linked ? '<td colspan="2" class="bg-out" style="text-align:center;font-size:10.5px;color:#888;">Maß aus Fenster-Reiter</td>'
+      : `<td class="bg-out"><input type="number" step="0.1" min="0" id="rl-mB-${id}" placeholder="B" oninput="calcRl(${id}, null)" title="Breite des Fensters bzw. der Öffnung (Außenmaß, cm)"></td><td class="bg-out"><input type="number" step="0.1" min="0" id="rl-mH-${id}" placeholder="H" oninput="calcRl(${id}, null)" title="Höhe des Fensters bzw. der Öffnung (Außenmaß, cm)"></td>`}
     <td>
       <select id="rl-montage-${id}" onchange="calcRl(${id}, ${linked ? fensterPosId : 'null'})">
         <option value="">– wählen –</option>
@@ -3169,8 +3175,8 @@ function calcRlAufsatz(rlId, fid, herst, antrieb, schiene) {
   const warn  = document.getElementById('rl-warn-' + rlId);
   const hinweise = [];
 
-  const aB = fid !== null ? (parseFloat(document.getElementById('f-aB-' + fid)?.value) || null) : null;
-  const aH = fid !== null ? (parseFloat(document.getElementById('f-aH-' + fid)?.value) || null) : null;
+  const aB = fid !== null ? (parseFloat(document.getElementById('f-aB-' + fid)?.value) || null) : (parseFloat(document.getElementById('rl-mB-' + rlId)?.value) || null);
+  const aH = fid !== null ? (parseFloat(document.getElementById('f-aH-' + fid)?.value) || null) : (parseFloat(document.getElementById('rl-mH-' + rlId)?.value) || null);
   const gesamtEin = parseFloat(document.getElementById('rl-gesamtH-' + rlId)?.value);
   const neubau = !isNaN(gesamtEin) && gesamtEin > 0;
 
@@ -3313,8 +3319,8 @@ function calcRl(rlId, fid) {
     return;
   }
 
-  const aB = fid !== null ? (parseFloat(document.getElementById('f-aB-' + fid)?.value) || null) : null;
-  const aH = fid !== null ? (parseFloat(document.getElementById('f-aH-' + fid)?.value) || null) : null;
+  const aB = fid !== null ? (parseFloat(document.getElementById('f-aB-' + fid)?.value) || null) : (parseFloat(document.getElementById('rl-mB-' + rlId)?.value) || null);
+  const aH = fid !== null ? (parseFloat(document.getElementById('f-aH-' + fid)?.value) || null) : (parseFloat(document.getElementById('rl-mH-' + rlId)?.value) || null);
   const sohlA = fid !== null ? (parseFloat(document.getElementById('f-sohlba-' + fid)?.value) || 0) : 0;
 
   // ─── Breite: schienenabhängig ───────────────────────────────────────────────
@@ -3334,7 +3340,7 @@ function calcRl(rlId, fid) {
       bestB.textContent = b + ' cm';
       noteB.textContent = aB + ' − 0,5 = ' + b;
     } else { bestB.textContent = '? cm'; noteB.textContent = 'Außenmaß B fehlt'; }
-    hinweise.push('⚠️ <strong>Verbreiterung 100 mm</strong> erforderlich – wird oben aufgesetzt, '
+    if (fid !== null) hinweise.push('⚠️ <strong>Verbreiterung 100 mm</strong> erforderlich – wird oben aufgesetzt, '
       + 'damit der Kasten nicht im Fenster bzw. auf Glasebene sitzt. '
       + 'Fenster-Bestellmaß <strong>nur in der Höhe um 10 cm reduzieren</strong> – die Breite bleibt unverändert.');
   }
@@ -3472,7 +3478,7 @@ function addIsPos(fensterPosId) {
   tr.innerHTML = `
     <td class="col-pos">
       <span id="${labelId}" style="font-weight:700; color:#1a3a5c; font-size:11.5px;">${labelTxt}</span>
-      ${linked ? '<div style="font-size:9.5px;color:#999;margin-top:1px;">🔗 aus Fenster-Reiter</div>' : ''}
+      ${linked ? '<div style="font-size:9.5px;color:#999;margin-top:1px;">🔗 aus Fenster-Reiter</div>' : `<input type="text" id="is-raum-${id}" placeholder="Raum / Bezeichnung" style="margin-top:3px;width:100%;">`}
     </td>
     <td class="bg-out" style="text-align:right;">
       <input type="number" step="0.1" min="0" id="is-basisB-${id}" value="${lichtB}" placeholder="0"
@@ -3595,7 +3601,7 @@ function applyIsZuschlag(id) {
       if (kopf) teile.push(kopf);
       if (d.pruefB) teile.push('⚠ Breite gesondert prüfen: ' + d.pruefB);
       if (d.pruefH) teile.push('⚠ Höhe gesondert prüfen: ' + d.pruefH);
-      const rh = isRahmenHinweis().replace(/^ · /, '');
+      const rh = isLinked(id) ? isRahmenHinweis().replace(/^ · /, '') : '';
       if (rh) teile.push(rh);
       wEl.style.color = (d.pruefB || d.pruefH) ? '#c0392b' : '#666';
       wEl.innerHTML = teile.join('<br>');
@@ -3607,15 +3613,18 @@ function applyIsZuschlag(id) {
       if (herst && modell) {
         wEl.style.color = '#c0392b';
         wEl.textContent = '⚠ Kein Abzugsmaß hinterlegt – gesondert prüfen / beim Hersteller anfragen'
-                        + isRahmenHinweis();
+                        + (isLinked(id) ? isRahmenHinweis() : '');
       } else {
         wEl.style.color = '#c0392b';
-        wEl.textContent = isRahmenHinweis().replace(/^ · /, '');
+        wEl.textContent = isLinked(id) ? isRahmenHinweis().replace(/^ · /, '') : '';
       }
     }
   }
   calcIs(id);
 }
+
+// Position stammt aus einem Fensteraufmaß (nicht manuell angelegt)?
+function isLinked(id) { return !!document.getElementById('is-basisB-' + id)?.closest('tr')?.id.startsWith('is-f'); }
 
 // Hinweistext zur Herkunft des lichten Maßes
 function isRahmenHinweis() {
