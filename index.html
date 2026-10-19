@@ -189,6 +189,42 @@
     
 
 
+    /* KARTENANSICHT (Fenster): die Tabellenzeile wird auf schmalen Bildschirmen zur Karte, gleiche Eingabefelder */
+    body.karten .scroll-wrap { overflow-x: visible; }
+    body.karten #fenster-table, body.karten #fenster-table tbody { display: block; width: 100%; }
+    body.karten #fenster-table thead { display: none; }
+    body.karten tr.fpos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; position: relative;
+      background: #fff; border: 1px solid #cfd5e0; border-radius: 12px; margin: 12px 8px; padding: 12px; }
+    body.karten tr.fpos::before { grid-column: 1 / -1; order: 0; font-size: 12.5px; font-weight: 700; color: #1a3a5c; padding: 2px 44px 6px 0; border-bottom: 1px solid #e3e8ef; cursor: pointer; }
+    body.karten tr.fpos.k-open::before { content: '▾ Zuklappen'; }
+    body.karten tr.fpos:not(.k-open)::before { content: '▸ Alle Felder aufklappen'; }
+    body.karten tr.fpos > td { display: block; border: 0; padding: 0; min-width: 0 !important; width: auto; order: 30; text-align: left !important; }
+    body.karten tr.fpos > td::before { content: attr(data-l); display: block; font-size: 10.5px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
+    body.karten tr.fpos > td.k-voll { grid-column: 1 / -1; }
+    body.karten tr.fpos > td.bg-in, body.karten tr.fpos > td.bg-out, body.karten tr.fpos > td.bg-calc { padding: 6px; border-radius: 8px; }
+    body.karten tr.fpos > td:nth-child(1) { order: 1; } body.karten tr.fpos > td:nth-child(2) { order: 2; } body.karten tr.fpos > td:nth-child(3) { order: 3; }
+    body.karten tr.fpos > td:nth-child(4) { order: 4; } body.karten tr.fpos > td:nth-child(5) { order: 5; }
+    body.karten tr.fpos > td:nth-child(6) { order: 6; } body.karten tr.fpos > td:nth-child(7) { order: 7; }
+    body.karten tr.fpos > td:nth-child(14) { order: 8; } body.karten tr.fpos > td:nth-child(15) { order: 9; }
+    body.karten tr.fpos > td:nth-child(17) { order: 10; } body.karten tr.fpos > td:nth-child(16) { order: 11; }
+    body.karten tr.fpos > td:nth-child(8) { order: 12; } body.karten tr.fpos > td:nth-child(9) { order: 13; }
+    body.karten tr.fpos > td:nth-child(10) { order: 14; } body.karten tr.fpos > td:nth-child(11) { order: 15; }
+    body.karten tr.fpos > td:nth-child(12) { order: 16; } body.karten tr.fpos > td:nth-child(13) { order: 17; }
+    body.karten tr.fpos > td:last-child { position: absolute; top: 8px; right: 8px; z-index: 2; order: 0; }
+    body.karten tr.fpos > td:last-child::before { content: none; }
+    body.karten tr.fpos:not(.k-open) > td:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(14)):not(:nth-child(15)):not(:nth-child(17)):not(:last-child) { display: none; }
+    @media (min-width: 600px) {
+      body.karten tr.fpos { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      body.karten tr.fpos > td { grid-column: span 2; }
+      body.karten tr.fpos > td.k-voll { grid-column: 1 / -1; }
+      body.karten tr.fpos > td:nth-child(n+4):nth-child(-n+11), body.karten tr.fpos > td:nth-child(14), body.karten tr.fpos > td:nth-child(15), body.karten tr.fpos > td:nth-child(17) { grid-column: span 1; }
+    }
+    body.karten tr.fpos .bock-box { width: 100%; }
+    body.karten tr.fpos input[type=checkbox] { margin: 0; width: 26px; height: 26px; }
+    body.karten tr.fpos .calc-box { font-size: 15px; padding: 6px 8px; }
+    body.karten #fenster-body { padding-bottom: 8px; }
+    body.karten .action-bar { position: sticky; bottom: 0; background: #f7f9fc; z-index: 5; box-shadow: 0 -2px 6px rgba(0,0,0,.08); }
+
     /* TABLET / TOUCH */
     html { -webkit-text-size-adjust: 100%; }
     button, select, input, label { touch-action: manipulation; }
@@ -387,6 +423,7 @@
     </div>
     <div class="action-bar">
       <button class="btn btn-secondary" onclick="addFensterPos()">+ Position hinzufügen</button>
+      <button class="btn btn-secondary" id="ansicht-btn" onclick="ansichtWechseln()" title="Karten (Handy, Tablet hochkant) oder Tabelle (Tablet quer, PC)">Ansicht: automatisch</button>
 
     </div>
   </div>
@@ -2077,6 +2114,7 @@ function addFensterPos() {
       <button class="btn-sm-del" onclick="removeFensterPos(${id})">✕</button>
     </td>`;
   tbody.appendChild(tr);
+  kartenVorbereiten(tr);
   applyKoppOptions(id);
   updateBadges();
 }
@@ -3932,6 +3970,40 @@ document.addEventListener('change', e => {
   if (/^ht-g-(farbe-i|farbe-a|profil|modell|material|hersteller)$/.test(t.id)) recalcAllHaustueren();
 });
 
+
+// ─── Ansicht: Karten (schmal) oder Tabelle (breit) ─────────────────────────────────
+// Die Kartenansicht ist reines CSS auf denselben Zeilen und Eingabefeldern; hier nur Beschriftungen und Umschaltung.
+const K_LABEL = ['Position / Raum', 'Öffnungsart', 'Aufteilung', 'Innenmaß Breite (cm)', 'Innenmaß Höhe (cm)', 'Außenmaß Breite (cm)', 'Außenmaß Höhe (cm)',
+  'Maß innen/außen (cm)', 'Maß außen/innen (cm)', 'Sohlbank innen (cm)', 'Sohlbank außen (cm)', 'Einbau', 'Fensterbankanschluss', 'Bestellmaß Breite', 'Bestellmaß Höhe',
+  'Verbreiterung / Sohlbank', 'Prüfung', 'Verglasung', 'Ornamentglas', 'Falzlüfter', 'Beschlag', 'Kopplung', 'Durchgangsmaß', 'Sprossen', 'Sprossenaufteilung',
+  'Rollladen', 'Insektenschutz', 'Skizze / Hinweis', 'Foto', 'Stück'];
+const K_VOLL = new Set([0, 1, 2, 12, 15, 17, 18, 21, 27, 28]);
+function kartenVorbereiten(tr) {
+  Array.from(tr.children).forEach((td, i) => { if (K_LABEL[i]) td.dataset.l = K_LABEL[i]; if (K_VOLL.has(i)) td.classList.add('k-voll'); });
+  document.querySelectorAll('tr.fpos.k-open').forEach(r => r.classList.remove('k-open'));   // nur die neueste Position ist aufgeklappt
+  tr.classList.add('k-open');
+}
+let ANSICHT_MEM = null;   // Merker, falls der Browser keinen Speicher erlaubt
+function ansichtModus() { if (ANSICHT_MEM) return ANSICHT_MEM; try { return localStorage.getItem('aufmass-ansicht') || 'auto'; } catch (e) { return 'auto'; } }
+function ansichtAnwenden() {
+  const m = ansichtModus();
+  const karten = m === 'karten' || (m === 'auto' && window.matchMedia('(max-width: 1000px)').matches);
+  document.body.classList.toggle('karten', karten);
+  const b = document.getElementById('ansicht-btn');
+  if (b) b.textContent = 'Ansicht: ' + ({ auto: 'automatisch', karten: 'Karten', tabelle: 'Tabelle' }[m]) + (m === 'auto' ? (karten ? ' (Karten)' : ' (Tabelle)') : '');
+}
+function ansichtWechseln() {
+  const n = { auto: 'karten', karten: 'tabelle', tabelle: 'auto' }[ansichtModus()];
+  ANSICHT_MEM = n;
+  try { localStorage.setItem('aufmass-ansicht', n); } catch (e) {}
+  ansichtAnwenden();
+}
+window.addEventListener('resize', ansichtAnwenden);
+document.addEventListener('click', e => {
+  const tr = e.target;
+  if (tr && tr.tagName === 'TR' && tr.classList.contains('fpos') && document.body.classList.contains('karten')) tr.classList.toggle('k-open');
+});
+ansichtAnwenden();
 
 // ─── Fotos ───────────────────────────────────────────────────────────────────
 const FOTOS = {};   // Schlüssel 'f<id>' | 'ht<id>' | 'zt<id>' → [dataURL, …]
