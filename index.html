@@ -3998,7 +3998,14 @@ function ansichtWechseln() {
   try { localStorage.setItem('aufmass-ansicht', n); } catch (e) {}
   ansichtAnwenden();
 }
-window.addEventListener('resize', ansichtAnwenden);
+// Hinweis „Neue Version“ (meldet der Service Worker, wenn im Hintergrund eine neuere Fassung gefunden wurde)
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => {
+  if (!e.data || !e.data.neueVersion || document.getElementById('neue-version')) return;
+  const b = document.createElement('div'); b.id = 'neue-version';
+  b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:10001;background:#1a3a5c;color:#fff;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:14px;';
+  b.innerHTML = '<span>Neue Version verfügbar.</span><button class="btn" style="background:#fff;color:#1a3a5c;" onclick="location.reload()">Jetzt neu laden</button>';
+  document.body.appendChild(b);
+});window.addEventListener('resize', ansichtAnwenden);
 document.addEventListener('click', e => {
   const tr = e.target;
   if (tr && tr.tagName === 'TR' && tr.classList.contains('fpos') && document.body.classList.contains('karten')) tr.classList.toggle('k-open');
