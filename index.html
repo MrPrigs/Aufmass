@@ -219,6 +219,19 @@
     body.karten tr.kpos .calc-box { font-size: 15px; padding: 6px 8px; }
     body.karten table.kt tbody { padding-bottom: 8px; }
     body.karten .action-bar { position: sticky; bottom: 0; background: #f7f9fc; z-index: 5; box-shadow: 0 -2px 6px rgba(0,0,0,.08); }
+    /* SCHMALE BILDSCHIRME: Formularfelder untereinander (sonst entstehen unsichtbare Spalten außerhalb der Karte, z. B. „Zeitlicher Horizont“) */
+    .form-group.span3, .form-group.span4 { grid-column: 1 / -1; }   /* volle Zeile statt fester Spaltenzahl (sonst entstehen unsichtbare Spalten) */
+    @media (max-width: 640px) {
+      .form-grid { grid-template-columns: minmax(0, 1fr) !important; }
+      .form-group.span2 { grid-column: 1 / -1; }
+      .form-group input[type=date] { min-width: 0; width: 100%; }
+    }
+    /* Unterposition (gekoppeltes Element) */
+    tr.fsub { background: #f4f8fc; }
+    tr.fsub > td:first-child { border-left: 5px solid #1a3a5c; padding-left: 8px; }
+    body.karten tr.kpos.fsub { margin-left: 26px; border-left: 6px solid #1a3a5c; background: #f4f8fc; }
+    body.karten tr.fsub > td:first-child { border-left: 0; padding-left: 0; }
+
     /* TABLET / TOUCH */
     html { -webkit-text-size-adjust: 100%; }
     button, select, input, label { touch-action: manipulation; }
@@ -394,6 +407,8 @@
             <th class="col-sm" rowspan="2" title="Wird erst bei 2-/3-flügeliger Öffnungsart freigegeben">Kopp-<br>lung</th>
             <th class="col-sm" rowspan="2">Durch-<br>gangsmaß</th>
             <th class="col-md" rowspan="2">Sprossen</th>
+            <th class="col-sm" rowspan="2">Sprossen-<br>breite</th>
+            <th class="col-sm" rowspan="2">Abstand-<br>halter</th>
             <th class="col-md" rowspan="2">Sprossen-<br>aufteilung</th>
             <th class="col-sm" rowspan="2">☐ Roll-<br>laden</th>
             <th class="col-sm" rowspan="2">☐ Insekten-<br>schutz</th>
@@ -1488,6 +1503,7 @@ function onFMaterialChange() {
   fillSelect('f-farbe-i',  [], '– bitte wählen –');
   fillSelect('f-farbe-a',  [], '– bitte wählen –');
   onFBlendrahmenChange();
+  updateAllGlas();
 }
 
 function onFHerstellerChange() {
@@ -1504,6 +1520,7 @@ function onFHerstellerChange() {
   updateAllZMass();
   applyAllKoppOptions();
   onFBlendrahmenChange();
+  updateAllGlas();
   recalcAllFenster();
 }
 
@@ -1830,16 +1847,6 @@ const ARTEN = [
     ['3-F-DK-F','Fest / DK / Fest'],
     ['3-DK-F-DK','DK / Fest / DK'],
   ]},
-  // Bockelemente: Tür und Fenster werden als ein Element gekoppelt bestellt.
-  // Die Einzelmaße werden in der Spalte Aufteilung erfasst.
-  { g: 'Bockelement', items: [
-    ['BOCK-L-F','Tür mit Seitenteil links – festverglast'],
-    ['BOCK-L-1','Tür mit Seitenteil links – 1-flügelig'],
-    ['BOCK-L-2','Tür mit Seitenteil links – 2-flügelig'],
-    ['BOCK-R-F','Tür mit Seitenteil rechts – festverglast'],
-    ['BOCK-R-1','Tür mit Seitenteil rechts – 1-flügelig'],
-    ['BOCK-R-2','Tür mit Seitenteil rechts – 2-flügelig'],
-  ]},
 ];
 
 function buildArtSelect(id, extra) {
@@ -1871,56 +1878,21 @@ for (const e of ['T', 'F']) {
   }
 }
 
-// Aktiviert/deaktiviert Aufteilung, Kopplung und Durchgangsmaß je nach gewählter Öffnungsart
+// Aktiviert/deaktiviert Aufteilung und Durchgangsmaß je nach gewählter Öffnungsart (Kopplung ist immer wählbar)
 function onArtChange(fid) {
   const code = document.getElementById('f-art-' + fid)?.value || '';
   const gruppe = ART_GRUPPE[code] || '';
   const mehrFluegelig = (gruppe === '2-flügelig' || gruppe === '3-flügelig');
-  const istBock = BOCK_CODES.has(code);
   const istTuer = TUER_CODES.has(code);
-  // Gekoppelt wird bei mehrflügeligen Elementen und bei Bockelementen
-  const koppelbar = mehrFluegelig || istBock;
 
   const auftEl = document.getElementById('f-auft-' + fid);
-  const bockEl = document.getElementById('f-bock-' + fid);
-  const koppEl = document.getElementById('f-kopp-' + fid);
   const dgEl   = document.getElementById('f-dg-' + fid);
 
-  // Bockelement: Einzelmaße statt Freitext-Aufteilung
-  if (bockEl) bockEl.style.display = istBock ? '' : 'none';
-  if (!istBock) {
-    BOCK_FELDER.forEach(pre => {
-      const el = document.getElementById(pre + fid);
-      if (el) el.value = '';
-    });
-  }
-
-  // Sohlbank wird beim Bockelement je Element im Aufteilungsfeld erfasst
-  ['f-sohlbi-', 'f-sohlba-'].forEach(pre => {
-    const el = document.getElementById(pre + fid);
-    if (!el) return;
-    el.disabled = istBock;
-    el.style.background = istBock ? '#eee' : '';
-    el.title = istBock ? 'Beim Bockelement je Element in der Spalte Aufteilung' : '';
-    if (istBock) el.value = '';
-  });
-
   if (auftEl) {
-    auftEl.style.display = istBock ? 'none' : '';
     auftEl.disabled = !mehrFluegelig;
     if (!mehrFluegelig) auftEl.value = '';
     auftEl.style.background = mehrFluegelig ? '' : '#eee';
     auftEl.placeholder = mehrFluegelig ? 'z.B. 60/40' : 'nur bei 2-/3-flügelig';
-  }
-  if (koppEl) {
-    koppEl.disabled = !koppelbar;
-    if (!koppelbar) koppEl.value = 'nein';
-    koppEl.style.background = koppelbar ? '' : '#eee';
-    koppEl.title = istBock
-      ? 'Bockelement – Kopplung zwischen Tür und Seitenteil wählen'
-      : (mehrFluegelig
-          ? 'Kopplungsart wählen'
-          : 'Nur bei 2-/3-flügeligen Öffnungsarten und Bockelementen');
   }
   if (dgEl) {
     dgEl.disabled = !istTuer;
@@ -1931,78 +1903,96 @@ function onArtChange(fid) {
   calcFenster(fid);
 }
 
+// ─── Kopplung: Hauptposition + Unterposition ───────────────────────────────────────────────────────────
+// Eine Kopplung ist bei jeder Öffnungsart wählbar. Sobald sie gewählt ist, öffnet sich unter der Hauptposition eine
+// Unterposition (eigene Zeile, eigene ID, tr.dataset.parent = Hauptposition) mit denselben Angaben.
+// Breite: Hauptposition − halbe Einbaufuge (eine Außenseite) − Fuge des Kopplungsprofils; Unterposition − halbe Einbaufuge.
+// Höhe: je Position wie bisher. Das Bockelement (Tür + Seitenteil) wird genauso erfasst.
+function fensterElternId(fid) {
+  const p = document.getElementById('fpos-' + fid)?.dataset.parent;
+  return p ? parseInt(p, 10) : null;
+}
+function fensterUnterRow(fid) {
+  return Array.from(document.querySelectorAll('tr.fpos')).find(r => r.dataset.parent === String(fid)) || null;
+}
+function fensterNr(fid) { const p = fensterElternId(fid); return p ? p + '.1' : String(fid); }
+function fensterLabel(fid) { return 'F-' + fensterNr(fid); }
+
+function onKoppChange(fid) {
+  const tr = document.getElementById('fpos-' + fid);
+  if (!tr || tr.dataset.parent) return;   // Unterpositionen haben keine eigene Kopplung
+  const sel = document.getElementById('f-kopp-' + fid);
+  const wahl = sel ? sel.value : 'nein';
+  const unter = fensterUnterRow(fid);
+  const laden = typeof sbWiederherstellt !== 'undefined' && sbWiederherstellt;
+  if (wahl !== 'nein' && !unter) {
+    const sid = addFensterPos(fid);
+    if (laden) { const h = document.getElementById('f-hint-' + sid); if (h && !h.value) h.value = 'Automatisch angelegt (frühere Kopplung) – Maße des gekoppelten Elements eintragen'; }
+  } else if (wahl === 'nein' && unter && !laden) {
+    const sid = parseInt(unter.id.replace('fpos-', ''), 10);
+    const hat = ['f-iB', 'f-iH', 'f-aB', 'f-aH'].some(p => (document.getElementById(p + '-' + sid)?.value || '') !== '');
+    if (hat && !confirm('Die Unterposition ' + fensterLabel(sid) + ' mit ihren Maßen wird gelöscht. Fortfahren?')) { if (sel) sel.value = sel.dataset.vorher || sel.value; return; }
+    removeFensterPos(sid);
+  }
+  if (sel) sel.dataset.vorher = sel.value;
+  calcFenster(fid);
+  const u2 = fensterUnterRow(fid);
+  if (u2) calcFenster(parseInt(u2.id.replace('fpos-', ''), 10));
+}
+
+// Zeile als Unterposition kennzeichnen (Raum übernehmen, eigene Kopplung sperren, Beschriftung)
+function fensterUnterInit(id, p) {
+  const tr = document.getElementById('fpos-' + id);
+  const raum = document.getElementById('f-raum-' + id);
+  if (raum) { if (!raum.value) raum.value = document.getElementById('f-raum-' + p)?.value || ''; raum.placeholder = 'Gekoppeltes Element zu Position ' + fensterNr(p); }
+  const kopp = document.getElementById('f-kopp-' + id);
+  if (kopp) { kopp.innerHTML = '<option value="nein">gekoppelt an Position ' + fensterNr(p) + '</option>'; kopp.disabled = true; kopp.style.background = '#eee'; kopp.title = 'Unterposition: Kopplungsart wird in der Hauptposition gewählt'; }
+  const td0 = tr && tr.children[0]; if (td0) td0.dataset.l = 'Unterposition zu Position ' + fensterNr(p) + ' · Raum';
+  syncLabel(id);
+}
+
+// Ältere Dateien: Bockelement (Tür + Seitenteil in einer Zeile) → Hauptposition (Tür) + Unterposition (Seitenteil)
+function bockMigrieren(S) {
+  const F = S.zeilenFelder, ids = S.zeilen.f.slice();
+  let neu = Math.max(S.zaehler.f || 0, ...ids);
+  for (const id of ids) {
+    const art = F['f-art-' + id];
+    if (!BOCK_CODES.has(art)) continue;
+    const sfx = art.slice(-1), sub = ++neu;
+    for (const [q, z] of [['iB', 'iB'], ['iH', 'iH'], ['aB', 'aB'], ['aH', 'aH'], ['sbI', 'sohlbi'], ['sbA', 'sohlba']]) {
+      F['f-' + z + '-' + sub] = F['f-bockF' + q + '-' + id] ?? '';
+      F['f-' + z + '-' + id] = F['f-bockT' + q + '-' + id] ?? '';
+    }
+    F['f-art-' + id] = '';                                  // Tür: Öffnungsart bitte neu wählen
+    F['f-art-' + sub] = sfx === 'F' ? 'FIX' : '';
+    F['f-raum-' + sub] = F['f-raum-' + id] || '';
+    F['f-parent-' + sub] = String(id);
+    for (const k of ['f-einbau', 'f-vgl', 'f-orn', 'f-beschlag', 'f-falz']) if (F[k + '-' + id] !== undefined) F[k + '-' + sub] = F[k + '-' + id];
+    F['f-hint-' + id] = (F['f-hint-' + id] ? F['f-hint-' + id] + ' · ' : '') + 'Bockelement umgesetzt: Tür = diese Position, Seitenteil = Unterposition – Öffnungsarten prüfen';
+    S.zeilen.f.splice(S.zeilen.f.indexOf(id) + 1, 0, sub);
+    S.zaehler.f = neu;
+  }
+}
+
 // ─── FENSTER POSITIONEN ─────────────────────────────────────────────────────────
-function addFensterPos() {
+function addFensterPos(elternId) {
   fCount++;
   const id = fCount;
   const tbody = document.getElementById('fenster-body');
   const tr = document.createElement('tr');
   tr.id = 'fpos-' + id;
   tr.className = 'fpos';
+  if (elternId) { tr.classList.add('fsub'); tr.dataset.parent = String(elternId); }
   tr.innerHTML = `
     <td class="col-pos">
       <input type="text" id="f-raum-${id}" placeholder="z.B. EG Wohnzimmer"
         oninput="syncLabel(${id})">
+      <input type="hidden" id="f-parent-${id}" value="${elternId || ''}">
     </td>
     <td class="col-md">${buildArtSelect('f-art-' + id, `onchange="onArtChange(${id})"`)}</td>
     <td class="col-lg" id="f-auftcell-${id}">
       <input type="text" id="f-auft-${id}" placeholder="nur bei 2-/3-flügelig" disabled style="background:#eee;"
-        oninput="calcFenster(${id})" title="Verhältnis der gekoppelten Elemente, z. B. 60/40 oder 1/1/1">
-      <div id="f-bock-${id}" class="bock-box" style="display:none; margin-top:3px;">
-        <div style="font-size:9px; color:#8a5a00; line-height:1.25;">
-          Tür und Seitenteil werden getrennt aufgemaßen und getrennt berechnet.
-        </div>
-        <div style="font-size:9.5px; color:#1a3a5c; font-weight:700; margin-top:4px;">Tür</div>
-        <div style="display:flex; gap:3px; align-items:center; margin-top:1px;">
-          <span class="bock-lbl" title="Rohbau-Innenmaß Tür">innen</span>
-          <input type="number" step="0.1" min="0" id="f-bockTiB-${id}" placeholder="B"
-            oninput="onFensterMassChange(${id})" title="Tür: Innenmaß Breite (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockTiH-${id}" placeholder="H"
-            oninput="onFensterMassChange(${id})" title="Tür: Innenmaß Höhe (cm)">
-          <span class="bock-lbl">außen</span>
-          <input type="number" step="0.1" min="0" id="f-bockTaB-${id}" placeholder="B"
-            oninput="onFensterMassChange(${id})" title="Tür: Außenmaß Breite (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockTaH-${id}" placeholder="H"
-            oninput="onFensterMassChange(${id})" title="Tür: Außenmaß Höhe (cm)">
-        </div>
-        <div style="display:flex; gap:3px; align-items:center; margin-top:1px;">
-          <span class="bock-lbl">Sohlb.</span>
-          <input type="number" step="0.1" min="0" id="f-bockTsbI-${id}" placeholder="innen"
-            oninput="onFensterMassChange(${id})" title="Tür: Sohlbank innen (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockTsbA-${id}" placeholder="außen"
-            oninput="onFensterMassChange(${id})" title="Tür: Sohlbank außen (cm)">
-          <span class="bock-lbl" title="Bestellmaß in mm – berechnet">Best. mm</span>
-          <input type="text" id="f-bockTB-${id}" readonly tabindex="-1"
-            style="background:#eef3f8; color:#1a3a5c; font-weight:600;" title="Bestellmaß Breite (mm) – berechnet">
-          <input type="text" id="f-bockTH-${id}" readonly tabindex="-1"
-            style="background:#eef3f8; color:#1a3a5c; font-weight:600;" title="Bestellmaß Höhe (mm) – berechnet">
-        </div>
-        <div style="font-size:9.5px; color:#1a3a5c; font-weight:700; margin-top:4px;">Seitenteil</div>
-        <div style="display:flex; gap:3px; align-items:center; margin-top:1px;">
-          <span class="bock-lbl" title="Rohbau-Innenmaß Seitenteil">innen</span>
-          <input type="number" step="0.1" min="0" id="f-bockFiB-${id}" placeholder="B"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Innenmaß Breite (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockFiH-${id}" placeholder="H"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Innenmaß Höhe (cm)">
-          <span class="bock-lbl">außen</span>
-          <input type="number" step="0.1" min="0" id="f-bockFaB-${id}" placeholder="B"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Außenmaß Breite (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockFaH-${id}" placeholder="H"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Außenmaß Höhe (cm)">
-        </div>
-        <div style="display:flex; gap:3px; align-items:center; margin-top:1px;">
-          <span class="bock-lbl">Sohlb.</span>
-          <input type="number" step="0.1" min="0" id="f-bockFsbI-${id}" placeholder="innen"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Sohlbank innen (cm)">
-          <input type="number" step="0.1" min="0" id="f-bockFsbA-${id}" placeholder="außen"
-            oninput="onFensterMassChange(${id})" title="Seitenteil: Sohlbank außen (cm)">
-          <span class="bock-lbl" title="Bestellmaß in mm – berechnet">Best. mm</span>
-          <input type="text" id="f-bockFB-${id}" readonly tabindex="-1"
-            style="background:#eef3f8; color:#1a3a5c; font-weight:600;" title="Bestellmaß Breite (mm) – berechnet">
-          <input type="text" id="f-bockFH-${id}" readonly tabindex="-1"
-            style="background:#eef3f8; color:#1a3a5c; font-weight:600;" title="Bestellmaß Höhe (mm) – berechnet">
-        </div>
-      </div>
+        oninput="calcFenster(${id})" title="Flügelaufteilung (nur Information), z. B. 60/40 oder 1/1/1">
     </td>
     <td class="bg-in"><input type="number" step="0.1" min="0" id="f-iB-${id}" placeholder="0"
       oninput="onFensterMassChange(${id})"></td>
@@ -2039,16 +2029,7 @@ function addFensterPos() {
     <td class="col-lg intern"><div class="kurz-note" id="f-pruef-${id}"></div></td>
     <td class="col-sm intern" style="text-align:center;"><button type="button" class="ampel ampel-grau" id="f-ampel-${id}" onclick="showAmpel('f', ${id})" title="Noch keine Prüfung – Maße eintragen">–</button></td>
     <td>
-      <select id="f-vgl-${id}">
-        <option value="">–</option>
-        <option>2-fach Wärmeschutzglas (Ug 1,1)</option>
-        <option>3-fach Wärmeschutzglas (Ug 0,6)</option>
-        <option>Schallschutzglas</option>
-        <option>Sicherheitsglas VSG 6mm (33.1)</option>
-        <option>Sicherheitsglas VSG 8mm (44.1)</option>
-        <option>Sicherheitsglas VSG 8mm doppelte Folie (44.2)</option>
-        <option>Sicherheitsglas P4A 10mm (RC2)</option>
-        <option>Sonnenschutzglas</option>
+      <select id="f-vgl-${id}">${glasOptionen()}
       </select>
     </td>
     <td>
@@ -2080,22 +2061,24 @@ function addFensterPos() {
       </select>
     </td>
     <td>
-      <select id="f-kopp-${id}" class="col-xl" disabled style="background:#eee;" onchange="calcFenster(${id})"
-        title="Nur bei 2-/3-flügeligen Öffnungsarten und Bockelementen">
+      <select id="f-kopp-${id}" class="col-xl" onchange="onKoppChange(${id})"
+        title="Kopplung wählen – darunter öffnet sich eine Unterposition für das gekoppelte Element">
         <option value="nein">Keine</option>
       </select>
     </td>
     <td><input type="number" step="0.1" min="0" id="f-dg-${id}" placeholder="nur bei Tür" disabled style="background:#eee; text-align:right;"
       title="Durchgangsmaß (cm)"></td>
     <td>
-      <select id="f-sprossen-${id}">
+      <select id="f-sprossen-${id}" onchange="onSprossenArt(${id})">
         <option value="nein">Nein</option>
         <option value="wiener">Wiener Sprosse</option>
         <option value="innen">Innenliegend</option>
         <option value="glasteilend">Glasteilend</option>
       </select>
     </td>
-    <td><input type="text" id="f-sprossena-${id}" placeholder="z.B. 3×2"></td>
+    <td><select id="f-sprb-${id}" disabled style="background:#eee;"><option value="">–</option></select></td>
+    <td><select id="f-sprah-${id}" disabled style="background:#eee;"><option value="">–</option><option value="0">ohne</option><option value="1">1×</option><option value="2">2×</option></select></td>
+    <td><input type="text" id="f-sprossena-${id}" placeholder="z.B. 3×2" title="Aufteilung je Scheibe bzw. Flügel (Spalten × Zeilen)"></td>
     <td style="text-align:center;">
       <input type="checkbox" id="f-rl-${id}" onchange="onRlCheck(${id}, this.checked)">
     </td>
@@ -2109,15 +2092,27 @@ function addFensterPos() {
     <td class="col-del">
       <button class="btn-sm-del" onclick="removeFensterPos(${id})">✕</button>
     </td>`;
-  tbody.appendChild(tr);
+  const elternTr = elternId ? document.getElementById('fpos-' + elternId) : null;
+  if (elternTr) elternTr.after(tr); else tbody.appendChild(tr);
   kartenVorbereiten(tr);
+  onSprossenArt(id);
   applyKoppOptions(id);
+  if (elternId) fensterUnterInit(id, elternId);
   updateBadges();
+  return id;
 }
 
 function removeFensterPos(id) {
   const el = document.getElementById('fpos-' + id);
+  const unter = fensterUnterRow(id);
+  if (unter) removeFensterPos(parseInt(unter.id.replace('fpos-', ''), 10));   // mit der Hauptposition entfällt die Unterposition
+  const eltern = el && el.dataset.parent ? parseInt(el.dataset.parent, 10) : null;
   if (el) el.remove();
+  if (eltern) {
+    const s = document.getElementById('f-kopp-' + eltern);
+    if (s) { s.value = 'nein'; s.dataset.vorher = 'nein'; }
+    calcFenster(eltern);
+  }
   // Remove linked Rollladen
   const rl = document.getElementById('rl-f' + id);
   if (rl) rl.remove();
@@ -2129,7 +2124,7 @@ function removeFensterPos(id) {
 
 function syncLabel(fid) {
   const raum = (document.getElementById('f-raum-' + fid)?.value || '').trim();
-  const lbl = 'F-' + fid + (raum ? ' · ' + raum : '');
+  const lbl = fensterLabel(fid) + (raum ? ' · ' + raum : '');
   const rlLbl = document.getElementById('rllbl-f' + fid);
   if (rlLbl) rlLbl.textContent = lbl;
   const isLbl = document.getElementById('islbl-f' + fid);
@@ -2174,6 +2169,7 @@ function getKopplungProfil(label, herst) {
 function applyKoppOptions(fid) {
   const el = document.getElementById('f-kopp-' + fid);
   if (!el) return;
+  if (el.closest('tr')?.dataset.parent) return;   // Unterposition: Kopplung wird in der Hauptposition gewählt
   const cur = el.value;
   const liste = getKopplungListe();
   el.innerHTML = '';
@@ -2241,7 +2237,7 @@ function pruefeAnsicht(o) {
     return;
   }
   const rb   = rahmen.breite;
-  const uebB = Math.max(0, (bestB - aB) / 2);
+  const uebB = o.einseitig ? Math.max(0, o.bestBohne - aB) : Math.max(0, (bestB - aB) / 2);   // gekoppelt: nur die Außenseite liegt an der Wand
   const uebH = Math.max(0, bestH - aH);
   const pruefe = (ueb, richtung, wo) => {
     const sichtbar = +(rb - ueb).toFixed(1);
@@ -2273,10 +2269,10 @@ function pruefeAnsicht(o) {
         + ') – es fehlen ' + fehlend + ' mm. <strong>Verbreiterung ' + v + ' mm ' + wo
         + '</strong> (fest im Werk montiert, Bestellmaß bleibt unverändert).');
       if (KURZ) KURZ.push((pre ? pre : '') + 'Verbr. ' + v + ' mm ' + (richtung === 'Breite' ? 'seitl.' : 'oben'));
-      if (PI) PI.verb.push({ mm: v, richtung: richtung === 'Breite' ? 'seit' : 'oben', B: bestB, H: bestH, label: pre });
+      if (PI) PI.verb.push({ mm: v, richtung: richtung === 'Breite' ? 'seit' : 'oben', B: bestB, H: bestH, label: pre, einseitig: !!o.einseitig });
     }
   };
-  pruefe(uebB, 'Breite', 'seitlich je Seite');
+  pruefe(uebB, 'Breite', o.einseitig ? 'seitlich (nur Außenseite)' : 'seitlich je Seite');
   pruefe(uebH, 'Höhe',   'oben');
 }
 
@@ -2366,7 +2362,7 @@ function showAmpel(prefix, id) {
   const titel = { gruen: 'Alles in Ordnung', gelb: 'Grenzwertig – bitte beachten', rot: 'Achtung – genauer nachsehen' }[d.level];
   const raum = (document.getElementById(prefix + '-raum-' + id)?.value || '').trim();
   document.getElementById('ampel-head').className = 'head ' + d.level;
-  document.getElementById('ampel-title').textContent = 'Position ' + id + (raum ? ' · ' + raum : '') + ' – ' + titel;
+  document.getElementById('ampel-title').textContent = 'Position ' + (prefix === 'f' ? fensterNr(id) : id) + (raum ? ' · ' + raum : '') + ' – ' + titel;
   const abschnitte = [
     ['rot',  'Hier muss genauer nachgesehen werden'],
     ['gelb', 'Grenzwertig / mit Maßnahme gelöst'],
@@ -2418,45 +2414,31 @@ function verteileAufKopplung(gesamt, teile, fuge) {
   return { nutz, masse };
 }
 
-// Kopplungsprüfung für eine normale (nicht Bock-) Position
+// Kopplungsprüfung (Hauptposition bzw. Unterposition). Rechenregel: siehe Kommentar bei fensterElternId
 function pruefeKopplung(o) {
-  const { fid, bestB, hinweise } = o;
-  const wahl = document.getElementById('f-kopp-' + fid)?.value || '';
-  if (!wahl || wahl === 'nein') return;
-  const prof = getKopplungProfil(wahl);
-  if (!prof) {
+  const { fid, bestB, hinweise, rolle, koppProf, koppWahl, koppAbzug, fuge } = o;
+  const halb = fuge.b / 2;
+  if (rolle === 'unter') {
+    const el = fensterElternId(fid);
+    hinweise.push('ℹ Unterposition zu Position ' + el + ': Breite − ' + halb + ' mm (nur eine Außenseite) = ' + bestB + ' mm. '
+      + 'Der Kopplungsabzug wird bei der Hauptposition abgezogen.');
+    return;
+  }
+  if (rolle !== 'haupt') return;
+  if (!koppProf) {
     hinweise.push('⚠ Kopplung gewählt, aber für dieses Profil ist kein Fugenmaß hinterlegt '
-      + '→ <strong>gesondert prüfen und anfragen</strong>.');
+      + '→ <strong>gesondert prüfen und anfragen</strong>. Bestellbreite bis dahin nur mit − ' + halb + ' mm.');
     return;
   }
-  if (prof.fuge === null) {
-    hinweise.push('⚠ ' + prof.label + ': Eckkopplungen ändern die Elementrichtung, eine '
-      + 'Breitenaufteilung ist nicht ableitbar → <strong>gesondert prüfen und anfragen</strong>.');
+  if (koppProf.fuge === null) {
+    hinweise.push('⚠ ' + koppProf.label + ': Eckkopplungen ändern die Elementrichtung, der Kopplungsabzug ist nicht ableitbar '
+      + '→ <strong>gesondert prüfen und anfragen</strong>. Bestellbreite bis dahin nur mit − ' + halb + ' mm.');
     return;
   }
-  const teile = parseAufteilung(document.getElementById('f-auft-' + fid)?.value || '');
-  if (teile.length < 2) {
-    hinweise.push('ℹ Kopplungsfuge ' + prof.label + ' = ' + prof.fuge + ' mm (' + prof.quelle
-      + '). Für die Einzelelemente verbleiben ' + (bestB - prof.fuge) + ' mm bei zwei Teilen – '
-      + 'Aufteilung eintragen (z. B. 60/40), dann rechnet der Assistent die Einzelbreiten aus.');
-    return;
-  }
-  const n = teile.length;
-  const res = verteileAufKopplung(bestB, teile, prof.fuge);
-  const gesamtFuge = (n - 1) * prof.fuge;
-  if (res && PI) PI.kopp = { masse: res.masse, n, prof };
-  if (!res) {
-    hinweise.push('⛔ Kopplung ' + prof.label + ': ' + (n - 1) + ' × ' + prof.fuge + ' mm = '
-      + gesamtFuge + ' mm Fuge übersteigen das Bestellmaß ' + bestB + ' mm – Maße prüfen.');
-    return;
-  }
-  hinweise.push('ℹ Kopplungsfuge ' + prof.label + ' = ' + prof.fuge + ' mm (' + prof.quelle
-    + '), ' + (n - 1) + (n > 2 ? ' Stöße' : ' Stoß') + ' → Abzug ' + gesamtFuge + ' mm.');
-  hinweise.push('→ <strong>Bestellbreiten der Einzelelemente: ' + res.masse.join(' / ')
-    + ' mm</strong> (Gesamt ' + bestB + ' − ' + gesamtFuge + ' = ' + res.nutz
-    + ' mm, aufgeteilt ' + teile.join('/') + ').');
-  hinweise.push('ℹ Bestellhöhe je Element ' + o.bestH + ' mm – bei Kopplung übereinander '
-    + 'gilt der Abzug stattdessen in der Höhe → gesondert prüfen.');
+  if (PI) PI.kopp = { sub: o.unterId, prof: koppProf };
+  hinweise.push('ℹ Kopplung ' + koppProf.label + ' = ' + koppProf.fuge + ' mm (' + koppProf.quelle + '). Hauptposition: Breite − ' + halb
+    + ' mm (eine Außenseite) − ' + koppAbzug + ' mm Kopplung = ' + bestB + ' mm.');
+  hinweise.push('ℹ Das gekoppelte Element steht in der Unterposition direkt darunter (nebeneinander gekoppelt). Bei Kopplung übereinander gilt der Abzug in der Höhe → gesondert prüfen.');
 }
 
 // ─── FENSTER-BESTELLMASS ────────────────────────────────────────────────────────
@@ -2511,12 +2493,19 @@ function calcFenster(fid) {
 
   // 2) Einbaufuge abziehen, immer auf ganze mm abrunden
   const fuge = DATA.fenster.einbaufuge;
-  const bestB = Math.floor(basisB - fuge.b);
+  // Kopplung: Hauptposition − halbe Einbaufuge (eine Außenseite) − Kopplungsabzug, Unterposition − halbe Einbaufuge
+  const eltern = fensterElternId(fid), unterId = eltern ? null : (fensterUnterRow(fid) ? parseInt(fensterUnterRow(fid).id.replace('fpos-', ''), 10) : null);
+  const koppWahl = document.getElementById('f-kopp-' + (eltern || fid))?.value || 'nein';
+  const rolle = eltern ? 'unter' : (unterId && koppWahl !== 'nein' ? 'haupt' : null);
+  const koppProf = getKopplungProfil(koppWahl);
+  const koppAbzug = (rolle === 'haupt' && koppProf && koppProf.fuge !== null) ? koppProf.fuge : 0;
+  const abzugB = rolle ? fuge.b / 2 + koppAbzug : fuge.b;
+  const bestB = Math.floor(basisB - abzugB);
   const bestH = Math.floor(basisH - fuge.h);
 
   bEl.textContent = bestB + ' mm';
   hEl.textContent = bestH + ' mm';
-  bN.textContent  = quelleB + ' ' + basisB + ' − ' + fuge.b;
+  bN.textContent  = quelleB + ' ' + basisB + ' − ' + abzugB;
   hN.textContent  = quelleH + ' ' + basisH + ' − ' + fuge.h;
 
   const daten = getFensterProfilDaten();
@@ -2524,15 +2513,15 @@ function calcFenster(fid) {
   const min   = DATA.fenster.minAnsicht;
 
   // 3) Ansichtsprüfung außen (beim Bockelement je Element, siehe Abschnitt 6)
-  const istBockPos = BOCK_CODES.has(document.getElementById('f-art-' + fid)?.value || '');
+  const istBockPos = false;   // Bockelemente werden als Hauptposition (Tür) + Unterposition (Seitenteil) erfasst
   if (!istBockPos) {
-    pruefeAnsicht({ bestB, bestH, aB, aH, einbau, daten, hinweise });
+    pruefeAnsicht({ bestB, bestH, aB, aH, einbau, daten, hinweise, einseitig: !!rolle, bestBohne: basisB - fuge.b / 2 });
   }
 
   // 3b) Kopplung: sobald eine Kopplungsart gewählt ist, geht je Stoß die Fuge
   //     des Profils vom Gesamtbestellmaß ab. Beim Bockelement in Abschnitt 6.
   if (!istBockPos) {
-    pruefeKopplung({ fid, bestB, bestH, hinweise });
+    pruefeKopplung({ fid, bestB, bestH, hinweise, rolle, unterId, koppProf, koppWahl, koppAbzug, fuge });
   }
 
   // 4) Sohlbank aus der Differenz der beiden Sohlbankmaße
@@ -2561,109 +2550,7 @@ function calcFenster(fid) {
     }
   }
 
-  // 6) Bockelement: Tür und Seitenteil werden vollständig getrennt gerechnet.
-  //    Jedes Element hat eine eigene Rohbauöffnung, ein eigenes Bestellmaß,
-  //    eine eigene Ansichtsprüfung/Verbreiterung und eine eigene Sohlbank.
-  //    Nur die Breiten hängen über die Kopplungsfuge am Gesamtbestellmaß.
-  if (istBockPos) {
-    const koppWahl = document.getElementById('f-kopp-' + fid)?.value || '';
-    const koppProf = getKopplungProfil(koppWahl);
-    if (!koppWahl || koppWahl === 'nein') {
-      hinweise.push('⚠ Bockelement ohne Kopplungsart – bitte Kopplungsprofil wählen.');
-    } else if (!koppProf) {
-      hinweise.push('⚠ Bockelement: für dieses Kopplungsprofil ist keine Fuge hinterlegt '
-        + '→ <strong>gesondert prüfen und anfragen</strong>.');
-    } else if (koppProf.fuge === null) {
-      hinweise.push('⚠ Bockelement mit ' + koppProf.label + ': Eckkopplungen ändern die '
-        + 'Elementrichtung, eine Breitensumme ist nicht ableitbar '
-        + '→ <strong>gesondert prüfen und anfragen</strong>.');
-    } else {
-      hinweise.push('ℹ Kopplungsfuge ' + koppProf.label + ' = ' + koppProf.fuge
-        + ' mm (' + koppProf.quelle + ').');
-    }
-    const kf = (koppProf && koppProf.fuge !== null) ? koppProf.fuge : null;
-    hinweise.push('ℹ Bockelement: die Einbaufuge von ' + fuge.b + ' mm fällt nur einmal an – '
-      + fuge.b / 2 + ' mm an der linken und ' + fuge.b / 2 + ' mm an der rechten Außenseite. '
-      + 'Am Kopplungsstoß wird keine Einbaufuge abgezogen.');
-
-    // Ein Element auswerten: Basismaß → Bestellmaß → Ansicht → Sohlbank
-    const elem = (pre, label) => {
-      const eiB = cm('f-bock' + pre + 'iB'), eiH = cm('f-bock' + pre + 'iH');
-      const eaB = cm('f-bock' + pre + 'aB'), eaH = cm('f-bock' + pre + 'aH');
-      const esbI = cm('f-bock' + pre + 'sbI'), esbA = cm('f-bock' + pre + 'sbA');
-      const bOut = document.getElementById('f-bock' + pre + 'B-' + fid);
-      const hOut = document.getElementById('f-bock' + pre + 'H-' + fid);
-
-      const basis = (iv, av) => {
-        if (iv === null && av === null) return null;
-        if (einbau === 'innen' && iv !== null) return iv;
-        if (einbau === 'außen' && av !== null) return av;
-        if (iv === null) return av;
-        if (av === null) return iv;
-        return av > iv ? av : iv;
-      };
-      const bB = basis(eiB, eaB), bH = basis(eiH, eaH);
-      // Breite: die Einbaufuge fällt nur an den beiden Außenseiten des gesamten
-      // Bockelements an, also je Element nur einmal halb (fuge.b / 2). Innen
-      // stoßen die Elemente über das Kopplungsprofil aneinander, dort gibt es
-      // keine Einbaufuge. Höhe: jedes Element hat seinen eigenen Sturz → fuge.h.
-      const eBestB = bB === null ? null : Math.floor(bB - fuge.b / 2);
-      const eBestH = bH === null ? null : Math.floor(bH - fuge.h);
-      if (bOut) bOut.value = eBestB === null ? '' : String(eBestB);
-      if (hOut) hOut.value = eBestH === null ? '' : String(eBestH);
-
-      if (eBestB === null || eBestH === null) {
-        hinweise.push('⚠ ' + label + ': Rohbaumaße unvollständig – Innen- und Außenmaß eintragen.');
-      } else {
-        hinweise.push('→ <strong>' + label + ' Bestellmaß ' + eBestB + ' × ' + eBestH
-          + ' mm</strong> (Breite − ' + (fuge.b / 2) + ' mm außen, Höhe − ' + fuge.h + ' mm).');
-        pruefeAnsicht({ bestB: eBestB, bestH: eBestH, aB: eaB, aH: eaH, einbau, daten, hinweise, label });
-      }
-      pruefeSohlbank({ sbI: esbI, sbA: esbA, daten, hinweise, label, pflicht: true, B: eBestB });
-      return { bestB: eBestB, bestH: eBestH };
-    };
-
-    const tuer = elem('T', 'Tür');
-    const seit = elem('F', 'Seitenteil');
-    if (PI) PI.bock = { T: tuer, F: seit, kf };
-
-    // Breitenprüfung gegen das Gesamtbestellmaß
-    if (kf === null) {
-      // ohne bekannte Fuge keine Summenprüfung
-    } else if (tuer.bestB !== null && seit.bestB !== null) {
-      const soll = tuer.bestB + kf + seit.bestB;
-      const diff = +(bestB - soll).toFixed(1);
-      if (Math.abs(diff) < 0.5) {
-        hinweise.push('✓ Bockelement: ' + tuer.bestB + ' + ' + kf + ' + ' + seit.bestB
-          + ' = ' + soll + ' mm entspricht dem Gesamtbestellmaß.');
-      } else if (diff > 0) {
-        hinweise.push('⚠ Bockelement: ' + tuer.bestB + ' + ' + kf + ' + ' + seit.bestB
-          + ' = ' + soll + ' mm liegt ' + diff + ' mm unter dem Gesamtbestellmaß ' + bestB
-          + ' mm – Einzelmaße prüfen.');
-      } else {
-        hinweise.push('⛔ Bockelement: ' + tuer.bestB + ' + ' + kf + ' + ' + seit.bestB
-          + ' = ' + soll + ' mm überschreitet das Gesamtbestellmaß ' + bestB + ' mm um '
-          + Math.abs(diff) + ' mm – Maße prüfen.');
-      }
-    } else if (tuer.bestB !== null) {
-      const rest = +(bestB - tuer.bestB - kf).toFixed(1);
-      if (rest > 0) {
-        hinweise.push('→ Seitenteil-Bestellbreite rechnerisch ' + bestB + ' − ' + tuer.bestB
-          + ' − ' + kf + ' = <strong>' + rest + ' mm</strong>.');
-      }
-    } else if (seit.bestB !== null) {
-      const rest = +(bestB - seit.bestB - kf).toFixed(1);
-      if (rest > 0) {
-        hinweise.push('→ Tür-Bestellbreite rechnerisch ' + bestB + ' − ' + seit.bestB
-          + ' − ' + kf + ' = <strong>' + rest + ' mm</strong>.');
-      }
-    }
-
-    if (tuer.bestH !== null && seit.bestH !== null && Math.abs(tuer.bestH - seit.bestH) < 0.5) {
-      hinweise.push('ℹ Bockelement: Tür und Seitenteil haben dieselbe Höhe – bitte prüfen, ob '
-        + 'das Seitenteil tatsächlich ohne Brüstung bis zum Boden geht.');
-    }
-  }
+  if (!istBockPos) pruefeGlas({ fid, bestB, bestH, hinweise });
 
   if (mat === 'Holz' || mat === 'Holz-Alu') {
     hinweise.push('ℹ Holzfenster: Bautiefe und Verbreiterungsmaße sind auftragsabhängig → gesondert prüfen.');
@@ -3060,7 +2947,7 @@ function addRlPos(fensterPosId) {
   tr.id = linked ? 'rl-f' + fensterPosId : 'rl-m' + id;
 
   const raum = linked ? (document.getElementById('f-raum-' + fensterPosId)?.value || '') : '';
-  const labelTxt = linked ? ('F-' + fensterPosId + (raum ? ' · ' + raum : '')) : 'Manuell';
+  const labelTxt = linked ? (fensterLabel(fensterPosId) + (raum ? ' · ' + raum : '')) : 'Manuell';
   const labelId = linked ? 'rllbl-f' + fensterPosId : '';
 
   tr.innerHTML = `
@@ -3502,7 +3389,7 @@ function addIsPos(fensterPosId) {
   tr.id = linked ? 'is-f' + fensterPosId : 'is-m' + id;
 
   const raum = linked ? (document.getElementById('f-raum-' + fensterPosId)?.value || '') : '';
-  const labelTxt = linked ? ('F-' + fensterPosId + (raum ? ' · ' + raum : '')) : 'Manuell';
+  const labelTxt = linked ? (fensterLabel(fensterPosId) + (raum ? ' · ' + raum : '')) : 'Manuell';
   const labelId = linked ? 'islbl-f' + fensterPosId : '';
 
   // Lichtes Blendrahmenmaß aus dem Fenster ableiten (sofern Profil-Abzug hinterlegt ist)
@@ -3684,6 +3571,7 @@ function isRahmenHinweis() {
 // Blendrahmen-Auswahl: Werte anzeigen und alle Insektenschutz-Positionen neu rechnen
 function onFProfilChange() {
   onFBlendrahmenChange();
+  updateAllGlas();
   recalcAllFenster();
 }
 
@@ -3977,6 +3865,127 @@ document.addEventListener('change', e => {
 });
 
 
+// ─── Verglasung und Sprossen (EGE Kunststoff, Preisliste 04/2025 S. 122–132) ─────────────────────────
+// Hier nur die Auswahl; die Preise stehen ausschließlich im Angebots-Assistenten.
+// GLAS_EGE: [Gruppe, [[Kennung, Bezeichnung, Glasklasse für die Maximalmaße, Anzahl Scheibenzwischenräume + 1]], nur für System]
+const GLAS_EGE = [
+  ['Wärmeschutz', [
+    ['W1', '2-fach 4-16-4 (Ug 1,1) – Standard', '4', 2], ['W2', '2-fach 6-16-4 (Ug 1,1)', '6a', 2], ['W3', '2-fach 6-16-6 (Ug 1,1)', '6b', 2],
+    ['W4', '2-fach 4-16-4 (Ug 1,0)', '4', 2],
+    ['W5', '3-fach 4-14-4-14-4 (Ug 0,6)', '4', 3], ['W6', '3-fach 6-14-4-14-4 (Ug 0,6)', '6a', 3], ['W7', '3-fach 6-14-6-14-6 (Ug 0,6)', '6b', 3],
+    ['W8', '3-fach 4-18-4-18-4 (Ug 0,5)', '4', 3], ['W9', '3-fach 6-18-4-18-4 (Ug 0,5)', '6a', 3]]],
+  ['Schallschutz (System 76)', [
+    ['S76-1', 'Rw 37 dB: 6-16-4 (Ug 1,1)', '6a', 2], ['S76-2', 'Rw 39 dB: 8-16-4 (Ug 1,1)', '', 2],
+    ['S76-3', 'Rw 43 dB: VSG 44.1 SI-16-8 (Ug 1,1)', '', 2], ['S76-4', 'Rw 44 dB: VSG 44.2 SI-16-10 (Ug 1,1)', '', 2],
+    ['S76-5', 'Rw 45 dB: VSG 44.1 SI-16-VSG 44.1 SI (Ug 1,1)', '', 2], ['S76-6', 'Rw 46 dB: VSG 66.2 SI-16-VSG 44.2 SI (Ug 1,1)', '', 2],
+    ['S76-7', 'Rw 47 dB: VSG 66.2 SI-20-VSG 44.2 SI (Ug 1,1)', '', 2],
+    ['S76-8', 'Rw 33 dB: 3-fach 4-12-4-12-4 (Ug 0,7)', '4', 3], ['S76-9', 'Rw 35 dB: 3-fach 4-18-4-18-4 (Ug 0,5)', '4', 3],
+    ['S76-10', 'Rw 39 dB: 3-fach 6-12-4-12-4 (Ug 0,7)', '6a', 3], ['S76-11', 'Rw 39 dB: 3-fach 6-16-4-14-4 (Ug 0,6)', '6a', 3],
+    ['S76-12', 'Rw 40 dB: 3-fach 6-16-4-18-4 (Ug 0,6)', '6a', 3], ['S76-13', 'Rw 42 dB: 3-fach 10-14-4-14-6 (Ug 0,6)', '', 3],
+    ['S76-14', 'Rw 44 dB: 3-fach VSG 44.2 SI-14-4-14-6 (Ug 0,6)', '', 3], ['S76-15', 'Rw 46 dB: 3-fach VSG 44.2 SI-12-6-12-VSG 44.2 SI (Ug 0,7)', '', 3]], 76],
+  ['Schallschutz (System 88)', [
+    ['S88-1', 'Rw 40 dB: 8-20-4 (Ug 1,1)', '', 2], ['S88-2', 'Rw 43 dB: VSG 44.1-16-8 (Ug 1,1)', '', 2],
+    ['S88-3', 'Rw 45 dB: VSG 44.1 SI-16-VSG 44.1 SI (Ug 1,1)', '', 2], ['S88-4', 'Rw 45 dB: VSG 44.1 SI-24 Alu-8 (Ug 1,1)', '', 2],
+    ['S88-5', 'Rw 46 dB: VSG 46.2 SI-20-VSG 44.2 SI (Ug 1,1)', '', 2], ['S88-6', 'Rw 47 dB: VSG 66.2 SI-20-VSG 44.2 SI (Ug 1,1)', '', 2],
+    ['S88-7', 'Rw 34 dB: 3-fach 4-12-4-12-4 (Ug 0,7)', '4', 3], ['S88-8', 'Rw 35 dB: 3-fach 4-16-4-16-4 (Ug 0,6)', '4', 3],
+    ['S88-9', 'Rw 39 dB: 3-fach 6-12-4-12-4 (Ug 0,7)', '6a', 3], ['S88-10', 'Rw 40 dB: 3-fach 6-18-4-18-4 (Ug 0,5)', '6a', 3],
+    ['S88-11', 'Rw 41 dB: 3-fach VSG 33.1-18-4-18-4 (Ug 0,5)', '', 3], ['S88-12', 'Rw 42 dB: 3-fach VSG 44.1-18-4-18-4 (Ug 0,5)', '', 3],
+    ['S88-13', 'Rw 43 dB: 3-fach VSG 44.1-18-4-18-6 (Ug 0,5)', '', 3], ['S88-14', 'Rw 44 dB: 3-fach VSG 44.1-16-6-16-VSG 33.1 (Ug 0,6)', '', 3],
+    ['S88-15', 'Rw 45 dB: 3-fach VSG 33.1 SI-14-4-14-VSG 44.1 SI* (Ug 0,6)', '', 3], ['S88-16', 'Rw 45 dB: 3-fach 8-12-4-12-VSG 44.1 SI* (Ug 0,7)', '', 3],
+    ['S88-17', 'Rw 45 dB: 3-fach 8-14-4-14-VSG 44.1 SI* (Ug 0,6)', '', 3], ['S88-18', 'Rw 46 dB: 3-fach VSG 44.1 SI-12-4-12-VSG 44.1 SI* (Ug 0,7)', '', 3],
+    ['S88-19', 'Rw 46 dB: 3-fach VSG 44.1 SI-14-4-14-VSG 44.1 SI* (Ug 0,6)', '', 3], ['S88-20', 'Rw 47 dB: 3-fach VSG 55.1 SI-14-4-14-VSG 44.1 SI* (Ug 0,6)', '', 3]], 88],
+  ['Verbundsicherheitsglas VSG 6 mm (33.1)', [
+    ['V1', 'VSG 33.1-16-4 (Ug 1,1)', '', 2], ['V2', '4-16-VSG 33.1 (Ug 1,1)', '', 2], ['V3', 'VSG 33.1-16-VSG 33.1 (Ug 1,1)', '', 2],
+    ['V4', '3-fach VSG 33.1-14-4-14-4 (Ug 0,6)', '', 3], ['V5', '3-fach 4-14-4-14-VSG 33.1 (Ug 0,6)', '', 3], ['V6', '3-fach VSG 33.1-14-4-14-VSG 33.1 (Ug 0,6)', '', 3],
+    ['V7', '3-fach VSG 33.1-18-4-18-4 (Ug 0,5)', '', 3], ['V8', '3-fach 4-18-4-18-VSG 33.1 (Ug 0,5)', '', 3], ['V9', '3-fach VSG 33.1-18-4-18-VSG 33.1 (Ug 0,5)', '', 3]]],
+  ['Einbruchhemmung P4A / RC2', [
+    ['P1', '4-16-P4A (Ug 1,1)', '', 2], ['P2', '3-fach 4-14-4-14-P4A (Ug 0,6)', '', 3], ['P3', '3-fach 4-18-4-18-P4A (Ug 0,5)', '', 3]]],
+  ['Absturzsicherung TRAV (18008-4)', [
+    ['T1', 'VSG 33.1-16-VSG 44.2 (Ug 1,1)', '', 2], ['T2', '3-fach VSG 33.1-14-4-14-VSG 44.2 (Ug 0,6)', '', 3], ['T3', '3-fach VSG 33.1-18-4-18-VSG 44.2 (Ug 0,5)', '', 3]]],
+  ['Einzelscheibe tauschen (Mehrpreis auf 2-fach 4-16-4)', [
+    ['E1', 'Float 6 mm unbeschichtet', '', 2], ['E2', 'Float 6 mm beschichtet', '', 2], ['E3', 'Float 8 mm unbeschichtet', '', 2], ['E4', 'Float 8 mm beschichtet', '', 2],
+    ['E5', 'VSG 6 mm (33.1) unbeschichtet', '', 2], ['E6', 'VSG 6 mm (33.1) beschichtet', '', 2], ['E7', 'VSG 8 mm (44.1) unbeschichtet', '', 2], ['E8', 'VSG 8 mm (44.1) beschichtet', '', 2],
+    ['E9', 'VSG 8 mm doppelte Folie (44.2) unbeschichtet (TRAV)', '', 2], ['E10', 'VSG 8 mm doppelte Folie (44.2) beschichtet (TRAV)', '', 2],
+    ['E11', 'P4A 10 mm unbeschichtet (RC2)', '', 2], ['E12', 'P4A 10 mm beschichtet (RC2)', '', 2]]],
+  ['Sonstige', [['X-SONNE', 'Sonnenschutzglas', '', 2], ['X-ANDERE', 'Anderer Glasaufbau (Sonderglas)', '', 2]]],
+];
+// Auswahl für andere Hersteller als EGE Kunststoff (unverändert)
+const GLAS_ALT = ['2-fach Wärmeschutzglas (Ug 1,1)', '3-fach Wärmeschutzglas (Ug 0,6)', 'Schallschutzglas', 'Sicherheitsglas VSG 6mm (33.1)', 'Sicherheitsglas VSG 8mm (44.1)',
+  'Sicherheitsglas VSG 8mm doppelte Folie (44.2)', 'Sicherheitsglas P4A 10mm (RC2)', 'Sonnenschutzglas'];
+// Maximalmaße Isolierglas (EGE-Liste S. 122): [kurze Seite mm, lange Seite mm, Fläche m², max. Seitenverhältnis, Bezeichnung]
+const GLAS_MAX = { '4': [1600, 2400, 3.84, 6, '4-SZR-4 bzw. 4-SZR-4-SZR-4'], '6a': [2000, 3000, 4.00, 6, '6-SZR-4 bzw. 6-SZR-4-SZR-4'], '6b': [2500, 4000, 8.00, 10, '6-SZR-6 bzw. 6-SZR-6-SZR-6'] };
+const EINTEILIG = new Set(['DK-L', 'DK-R', 'D-L', 'D-R', 'K', 'FIX', 'FF', 'DKT-L', 'DKT-R']);
+
+function glasInfo(id) {
+  for (const gr of GLAS_EGE) for (const i of gr[1]) if (i[0] === id) return { id: i[0], label: i[1], klasse: i[2], fach: i[3] };
+  return null;
+}
+function glasKontext() {
+  const her = document.getElementById('f-hersteller')?.value || '', mat = document.getElementById('f-material')?.value || '', prof = document.getElementById('f-profil')?.value || '';
+  return { ege: her === 'EGE' && mat === 'Kunststoff', sys: /88/.test(prof) ? 88 : /76/.test(prof) ? 76 : 0 };
+}
+function glasOptionen() {
+  const k = glasKontext();
+  if (!k.ege) return '<option value="">–</option>' + GLAS_ALT.map(v => '<option>' + v + '</option>').join('');
+  let h = '<option value="">– Standard 2-fach 4-16-4 –</option>';
+  for (const gr of GLAS_EGE) {
+    if (gr[2] && k.sys && gr[2] !== k.sys) continue;
+    h += '<optgroup label="' + gr[0] + '">' + gr[1].map(i => '<option value="' + i[0] + '">' + i[1] + '</option>').join('') + '</optgroup>';
+  }
+  return h;
+}
+// Auswahlliste aller Positionen neu aufbauen, wenn Material, Hersteller oder Profil wechseln (gewählter Aufbau bleibt, wenn er noch passt)
+function updateAllGlas() {
+  document.querySelectorAll('tr.fpos').forEach(tr => {
+    const sel = tr.querySelector('select[id^="f-vgl-"]'); if (!sel) return;
+    const alt = sel.value; sel.innerHTML = glasOptionen();
+    if (alt && Array.from(sel.options).some(o => o.value === alt)) sel.value = alt;
+  });
+}
+
+// Sprossen: Breite hängt von der Art ab, Abstandhalter nur bei aufgesetzten (Wiener) Sprossen
+function onSprossenArt(id) {
+  const art = document.getElementById('f-sprossen-' + id)?.value || 'nein';
+  const b = document.getElementById('f-sprb-' + id), a = document.getElementById('f-sprah-' + id);
+  if (!b || !a) return;
+  const breiten = { innen: [18, 26, 45], wiener: [27, 35, 50] }[art] || [];
+  const alt = b.value;
+  b.innerHTML = '<option value="">' + (breiten.length ? '– Breite –' : '–') + '</option>' + breiten.map(x => '<option value="' + x + '">' + x + ' mm</option>').join('');
+  if (breiten.map(String).includes(alt)) b.value = alt;
+  b.disabled = !breiten.length;
+  a.disabled = art !== 'wiener'; if (art !== 'wiener') a.value = '';
+  [b, a].forEach(e => { e.style.background = e.disabled ? '#eee' : ''; });
+}
+
+// Prüfung Glas (Ampel): Maximalmaße des Isolierglases je Aufbau
+function pruefeGlas(o) {
+  const fid = o.fid, h = o.hinweise;
+  const art = document.getElementById('f-art-' + fid)?.value || '';
+  const vgl = document.getElementById('f-vgl-' + fid)?.value || '';
+  const k = glasKontext();
+  const G = k.ege ? (vgl ? glasInfo(vgl) : glasInfo('W1')) : null;
+  const kopp = document.getElementById('f-kopp-' + fid)?.value || 'nein';
+  if (G && G.klasse && GLAS_MAX[G.klasse]) {
+    if (!EINTEILIG.has(art) || kopp !== 'nein') {
+      h.push('ℹ Maximalmaße des Glases (' + G.label + '): bei mehrteiligen oder gekoppelten Elementen je Scheibe prüfen.');
+    } else {
+      const m = GLAS_MAX[G.klasse], kurz = Math.min(o.bestB, o.bestH), lang = Math.max(o.bestB, o.bestH), fl = o.bestB * o.bestH / 1e6;
+      const probleme = [];
+      if (kurz > m[0] || lang > m[1]) probleme.push('Maß ' + o.bestB + ' × ' + o.bestH + ' mm über ' + m[0] + ' × ' + m[1] + ' mm');
+      if (fl > m[2]) probleme.push('Fläche ' + fl.toFixed(2).replace('.', ',') + ' m² über ' + String(m[2].toFixed(2)).replace('.', ',') + ' m²');
+      if (lang / kurz > m[3]) probleme.push('Seitenverhältnis über 1 : ' + m[3]);
+      if (probleme.length) h.push('⚠️ <strong>Glas ' + G.label + ': Maximalmaß überschritten</strong> (' + probleme.join('; ') + '; Liste für ' + m[4] + ', Prüfung mit dem Blendrahmen-Außenmaß). Statisch stärkeres Glas wählen – gesondert prüfen / anfragen.');
+      else h.push('✓ Glasaufbau innerhalb der Maximalmaße der Liste (geprüft mit dem Blendrahmen-Außenmaß).');
+    }
+  }
+}
+// Änderungen an Verglasung und Sprossen neu prüfen
+document.addEventListener('change', e => {
+  const t = e.target; if (!t || !t.id) return;
+  const m = t.id.match(/^f-(vgl|sprossen|sprb|sprah)-(\d+)$/);
+  if (m) calcFenster(parseInt(m[2], 10));
+});
+
 // ─── Ansicht: Karten (schmal) oder Tabelle (breit) ─────────────────────────────────
 // Reines CSS auf denselben Zeilen und Eingabefeldern; hier nur Beschriftungen, Reihenfolge und Umschaltung.
 // Je Spalte (Schlüssel = erstes Feld-Id ohne Zeilennummer): [Beschriftung, Reihenfolge in der Karte, Merkmale]
@@ -3987,9 +3996,11 @@ const K_CFG = {
   'f-bestB': ['Bestellmaß Breite', 8, 'ks'], 'f-bestH': ['Bestellmaß Höhe', 9, 'ks'], 'f-ampel': ['Prüfung', 10, 'ks'], 'f-pruef': ['Verbreiterung / Sohlbank', 11, 'v'],
   'f-massIA': ['Maß innen/außen (cm)', 12, 's'], 'f-massAI': ['Maß außen/innen (cm)', 13, 's'], 'f-sohlbi': ['Sohlbank innen (cm)', 14, 's'], 'f-sohlba': ['Sohlbank außen (cm)', 15, 's'],
   'f-einbau': ['Einbau', 16, ''], 'f-sbprof': ['Fensterbankanschluss', 17, 'v'],
-  'f-vgl': ['Verglasung', 20, 'v'], 'f-orn': ['Ornamentglas', 21, 'v'], 'f-falz': ['Falzlüfter', 22, ''], 'f-beschlag': ['Beschlag', 23, ''], 'f-kopp': ['Kopplung', 24, 'v'],
-  'f-dg': ['Durchgangsmaß', 25, ''], 'f-sprossen': ['Sprossen', 26, ''], 'f-sprossena': ['Sprossenaufteilung', 27, ''], 'f-rl': ['Rollladen', 28, ''], 'f-is': ['Insektenschutz', 29, ''],
-  'f-hint': ['Skizze / Hinweis', 30, 'v'], 'fotot': ['Foto', 31, 'v'], 'f-menge': ['Stück', 32, ''],
+  'f-vgl': ['Verglasung', 20, 'v'], 'f-orn': ['Ornamentglas', 21, 'v'],
+  'f-falz': ['Falzlüfter', 25, ''], 'f-beschlag': ['Beschlag', 26, ''], 'f-kopp': ['Kopplung', 27, 'v'],
+  'f-dg': ['Durchgangsmaß', 28, ''], 'f-sprossen': ['Sprossen', 29, ''], 'f-sprb': ['Sprossenbreite', 30, 's'], 'f-sprah': ['Abstandhalter (Sprosse)', 31, 's'], 'f-sprossena': ['Sprossenaufteilung (je Scheibe)', 32, ''],
+  'f-rl': ['Rollladen', 33, ''], 'f-is': ['Insektenschutz', 34, ''],
+  'f-hint': ['Skizze / Hinweis', 35, 'v'], 'fotot': ['Foto', 90, 'v'], 'f-menge': ['Stück', 95, ''],
   // Haustüren
   'ht-auft': ['Türart / Aufteilung', 2, 'vk'], 'ht-anschlag': ['Anschlag', 3, ''], 'ht-oeff': ['Öffnungsrichtung', 4, ''],
   'ht-iB': ['Innenmaß Breite (cm)', 5, 's'], 'ht-iH': ['Innenmaß Höhe (cm)', 6, 's'], 'ht-aB': ['Außenmaß Breite (cm)', 7, 's'], 'ht-aH': ['Außenmaß Höhe (cm)', 8, 's'],
@@ -3997,7 +4008,7 @@ const K_CFG = {
   'ht-massIA': ['Maß innen/außen (cm)', 13, 's'], 'ht-massAI': ['Maß außen/innen (cm)', 14, 's'], 'ht-sohlbi': ['Sohlbank innen (cm)', 15, 's'], 'ht-sohlba': ['Sohlbank außen (cm)', 16, 's'],
   'ht-einbau': ['Einbau', 17, ''], 'ht-kopp': ['Kopplung', 18, 'v'],
   'ht-fuellung': ['Füllung', 20, 'v'], 'ht-fuellung-artnr': ['Art.-Nr. Füllung', 21, ''], 'ht-griffi': ['Griff / Drücker innen', 22, ''], 'ht-griffa': ['Griff / Drücker außen', 23, ''],
-  'ht-vgl': ['Verglasung', 24, 'v'], 'ht-schloss': ['Schloss / Verriegelung', 25, 'v'], 'ht-pz': ['PZ', 26, ''], 'ht-hint': ['Hinweis', 27, 'v'], 'ht-menge': ['Stück', 32, ''],
+  'ht-vgl': ['Verglasung', 24, 'v'], 'ht-schloss': ['Schloss / Verriegelung', 25, 'v'], 'ht-pz': ['PZ', 26, ''], 'ht-hint': ['Hinweis', 27, 'v'], 'ht-menge': ['Stück', 95, ''],
   // Rollladen
   'rllbl': ['Fenster-Pos. / Raum', 1, 'vk'], 'rl-raum': ['Raum / Bezeichnung', 1, 'vk'],
   'rl-bestB': ['Bestellmaß Breite (cm)', 2, 'ks'], 'rl-bestH': ['Bestellmaß Höhe (cm)', 3, 'ks'],
@@ -4167,12 +4178,19 @@ function sbWiederherstellen(S) {
     apply(S.general, true);                                         // Material → Hersteller → Profil → Farben …
     apply(S.general, true);
     // Zeilen anlegen (gleiche IDs wie beim Sichern)
-    for (const id of S.zeilen.f)  { fCount = id - 1;  addFensterPos(); }
+    bockMigrieren(S);
+    for (const id of S.zeilen.f)  { fCount = id - 1;  addFensterPos(S.zeilenFelder['f-parent-' + id] ? parseInt(S.zeilenFelder['f-parent-' + id], 10) : undefined); }
     for (const id of S.zeilen.ht) { htCount = id - 1; addHaustuerPos(); }
     for (const id of S.zeilen.zt) { ztCount = id - 1; addZimmerturenPos(); }
     for (const r of S.zeilen.rl)  { rlCount = r.id - 1; addRlPos(r.fid); }
     for (const r of S.zeilen.is)  { isCount = r.id - 1; addIsPos(r.fid); }
     fCount = S.zaehler.f; htCount = S.zaehler.ht; rlCount = S.zaehler.rl; isCount = S.zaehler.is; ztCount = S.zaehler.zt;
+    // ältere Dateien: Verglasung (EGE) war ein freier Text, jetzt eine Auswahl-Kennung
+    if (S.general['f-material'] === 'Kunststoff' && S.general['f-hersteller'] === 'EGE') {
+      const alt = { '2-fach Wärmeschutzglas (Ug 1,1)': 'W1', '3-fach Wärmeschutzglas (Ug 0,6)': 'W5', 'Schallschutzglas': '', 'Sicherheitsglas VSG 6mm (33.1)': 'E5',
+        'Sicherheitsglas VSG 8mm (44.1)': 'E7', 'Sicherheitsglas VSG 8mm doppelte Folie (44.2)': 'E9', 'Sicherheitsglas P4A 10mm (RC2)': 'P1', 'Sonnenschutzglas': 'X-SONNE' };
+      for (const k of Object.keys(S.zeilenFelder)) if (/^f-vgl-\d+$/.test(k) && alt[S.zeilenFelder[k]] !== undefined) S.zeilenFelder[k] = alt[S.zeilenFelder[k]];
+    }
     // ältere Dateien: Art/Modell/Montageart des Insektenschutzes galten für alle Positionen gemeinsam
     for (const r of S.zeilen.is) for (const k of ['art', 'modell', 'montage']) { const g = S.general['is-g-' + k]; if (g && S.zeilenFelder['is-' + k + '-' + r.id] === undefined) S.zeilenFelder['is-' + k + '-' + r.id] = g; }
     apply(S.zeilenFelder, true); apply(S.zeilenFelder, true);
