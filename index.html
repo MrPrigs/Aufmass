@@ -593,6 +593,7 @@
             <th class="col-sm bg-calc">Bestell-<br>maß B (cm)</th>
             <th class="col-sm bg-calc">Bestell-<br>maß H (cm)</th>
             <th class="col-lg">Hinweis / Warnung</th>
+            <th class="col-md">📷 Foto</th>
             <th class="col-del"></th>
           </tr>
         </thead>
@@ -610,7 +611,7 @@
 <!-- ===================================================================== -->
 <div id="tab-insektenschutz" class="tab-content">
   <div class="alert alert-info" style="margin-bottom:12px;">
-    <strong>ℹ Hinweis:</strong> Insektenschutz-Positionen werden automatisch angelegt, sobald im Fenster-Reiter die Checkbox „Insektenschutz" gesetzt wird. Das Z-Maß (Blendrahmenüberschlag) wird anhand des Fenster-Herstellers automatisch gesetzt (EGE &amp; Gehlenbeck Kunststoff = 23 mm). Die Zuschläge bzw. Abzüge werden aus Modell + Montageart automatisch gesetzt und auf das <strong>lichte Blendrahmenmaß</strong> gerechnet (+ = Auflage/Zuschlag, − = Abzug). Varianten ohne hinterlegte Formel werden rot als <strong>gesondert prüfen / anfragen</strong> markiert.
+    <strong>ℹ Hinweis:</strong> Insektenschutz-Positionen werden automatisch angelegt, sobald im Fenster-Reiter die Checkbox „Insektenschutz" gesetzt wird. <strong>Art, Modell und Montageart werden je Position gewählt</strong> (eine neue Position übernimmt die Auswahl der vorherigen). Das Z-Maß (Blendrahmenüberschlag) wird anhand des Fenster-Herstellers automatisch gesetzt (EGE &amp; Gehlenbeck Kunststoff = 23 mm). Die Zuschläge bzw. Abzüge werden aus Modell + Montageart automatisch gesetzt und auf das <strong>lichte Blendrahmenmaß</strong> gerechnet (+ = Auflage/Zuschlag, − = Abzug). Varianten ohne hinterlegte Formel werden rot als <strong>gesondert prüfen / anfragen</strong> markiert.
   </div>
   <div class="card">
     <div class="card-header">Allgemeine Angaben – Insektenschutz</div>
@@ -622,24 +623,6 @@
             <option value="">– bitte wählen –</option>
             <option>Groja</option>
             <option>Solis</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Art</label>
-          <select id="is-g-art" onchange="onIsArtChange()">
-            <option value="">– erst Hersteller wählen –</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Modell</label>
-          <select id="is-g-modell" onchange="onIsModellChange()">
-            <option value="">– erst Art wählen –</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Montageart / Variante</label>
-          <select id="is-g-montage" onchange="onIsMontageChange()">
-            <option value="">– erst Modell wählen –</option>
           </select>
         </div>
         <div class="form-group">
@@ -659,6 +642,9 @@
         <thead>
           <tr>
             <th class="col-pos">Fenster-Pos. / Raum</th>
+            <th class="col-md">Art</th>
+            <th class="col-md">Modell</th>
+            <th class="col-lg">Montageart /<br>Variante</th>
             <th class="col-sm bg-out">lichte<br>Breite (cm)</th>
             <th class="col-sm">Zuschlag B<br>(cm)</th>
             <th class="col-sm bg-calc">Bestell-<br>maß B (cm)</th>
@@ -668,6 +654,7 @@
             <th class="col-sm bg-calc">Z-Maß<br>(mm)</th>
             <th class="col-md">Gaze</th>
             <th class="col-xl">Hinweis</th>
+            <th class="col-md">📷 Foto</th>
             <th class="col-del"></th>
           </tr>
         </thead>
@@ -1697,34 +1684,50 @@ function onRlKastenChange(id) {
 }
 
 // ─── Insektenschutz Cascade ───────────────────────────────────────────────────
+// Hersteller und Farbe gelten für alle Positionen; Art, Modell und Montageart wählt man je Position (…Pos-Funktionen unten)
 function onIsHerstellerChange() {
   const herst = document.getElementById('is-g-hersteller').value;
-  fillSelect('is-g-art',    DATA.is.art[herst] || [],    '– erst Hersteller wählen –');
-  fillSelect('is-g-modell', [], '– erst Art wählen –');
-  fillSelect('is-g-montage', [], '– erst Modell wählen –');
-  fillSelect('is-g-farbe',  DATA.is.farben[herst] || [], '– erst Hersteller wählen –');
+  fillSelect('is-g-farbe', DATA.is.farben[herst] || [], '– erst Hersteller wählen –');
+  document.querySelectorAll('tr.ispos').forEach(row => {
+    const e = row.querySelector('[id^="is-art-"]');
+    if (e) isInitAuswahl(parseInt(e.id.replace('is-art-', ''), 10), true);
+  });
   updateAllIsGaze();
   updateAllIsZuschlag();
 }
 
-function onIsArtChange() {
-  const herst = document.getElementById('is-g-hersteller').value;
-  const art   = document.getElementById('is-g-art').value;
-  fillSelect('is-g-modell', DATA.is.modell[herst + '|' + art] || [], '– erst Art wählen –');
-  fillSelect('is-g-montage', [], '– erst Modell wählen –');
-  updateAllIsZuschlag();
+function onIsArtPos(id) {
+  const herst = document.getElementById('is-g-hersteller')?.value || '';
+  const art   = document.getElementById('is-art-' + id)?.value || '';
+  fillSelect('is-modell-' + id, DATA.is.modell[herst + '|' + art] || [], '– erst Art wählen –');
+  fillSelect('is-montage-' + id, [], '– erst Modell wählen –');
+  applyIsZuschlag(id);
 }
 
-function onIsModellChange() {
-  const herst  = document.getElementById('is-g-hersteller').value;
-  const modell = document.getElementById('is-g-modell').value;
+function onIsModellPos(id) {
+  const herst  = document.getElementById('is-g-hersteller')?.value || '';
+  const modell = document.getElementById('is-modell-' + id)?.value || '';
   const opts   = DATA.is.montage[herst + '|' + modell] || [];
-  fillSelect('is-g-montage', opts, opts.length ? '– bitte wählen –' : '– keine Varianten hinterlegt –');
-  updateAllIsZuschlag();
+  fillSelect('is-montage-' + id, opts, opts.length ? '– bitte wählen –' : '– keine Varianten hinterlegt –');
+  applyIsZuschlag(id);
 }
 
-function onIsMontageChange() {
-  updateAllIsZuschlag();
+function onIsMontagePos(id) {
+  applyIsZuschlag(id);
+}
+
+// Auswahlfelder einer Position füllen; eine neue Position schlägt die Auswahl der Zeile darüber vor
+function isInitAuswahl(id, ohneVorschlag) {
+  const herst = document.getElementById('is-g-hersteller')?.value || '';
+  fillSelect('is-art-' + id, DATA.is.art[herst] || [], herst ? '– bitte wählen –' : '– erst Hersteller wählen –');
+  onIsArtPos(id);
+  if (ohneVorschlag || !herst) return;
+  const tr = document.getElementById('is-art-' + id)?.closest('tr');
+  const vor = tr && tr.previousElementSibling;
+  if (!vor || !vor.classList.contains('ispos')) return;
+  const v = k => vor.querySelector('[id^="is-' + k + '-"]')?.value || '';
+  const setze = (k, wert, fn) => { const el = document.getElementById('is-' + k + '-' + id); if (el && wert && Array.from(el.options).some(o => o.value === wert)) { el.value = wert; fn(id); } };
+  setze('art', v('art'), onIsArtPos); setze('modell', v('modell'), onIsModellPos); setze('montage', v('montage'), onIsMontagePos);
 }
 
 // Aktualisiert das Gewebe/Gaze-Dropdown aller bereits erfassten Insektenschutz-Positionen,
@@ -3105,6 +3108,7 @@ function addRlPos(fensterPosId) {
     <td>
       <div class="warn-note" id="rl-warn-${id}"></div>
     </td>
+    <td class="col-md">${fotoZelle('rl' + id)}</td>
     <td class="col-del">
       <button class="btn-sm-del" onclick="removeRlPos('${tr.id}', ${linked ? fensterPosId : 'null'})">✕</button>
     </td>`;
@@ -3513,6 +3517,9 @@ function addIsPos(fensterPosId) {
       <span id="${labelId}" style="font-weight:700; color:#1a3a5c; font-size:11.5px;">${labelTxt}</span>
       ${linked ? '<div style="font-size:9.5px;color:#999;margin-top:1px;">🔗 aus Fenster-Reiter</div>' : `<input type="text" id="is-raum-${id}" placeholder="Raum / Bezeichnung" style="margin-top:3px;width:100%;">`}
     </td>
+    <td class="col-md"><select id="is-art-${id}" onchange="onIsArtPos(${id})"><option value="">–</option></select></td>
+    <td class="col-md"><select id="is-modell-${id}" onchange="onIsModellPos(${id})"><option value="">–</option></select></td>
+    <td class="col-lg"><select id="is-montage-${id}" onchange="onIsMontagePos(${id})"><option value="">–</option></select></td>
     <td class="bg-out" style="text-align:right;">
       <input type="number" step="0.1" min="0" id="is-basisB-${id}" value="${lichtB}" placeholder="0"
         oninput="calcIs(${id})" title="Lichtes Blendrahmenmaß Breite">
@@ -3547,11 +3554,13 @@ function addIsPos(fensterPosId) {
       <div class="warn-note" id="is-warn-${id}"></div>
       <input type="text" id="is-hint-${id}" placeholder="Hinweis">
     </td>
+    <td class="col-md">${fotoZelle('is' + id)}</td>
     <td class="col-del">
       <button class="btn-sm-del" onclick="removeIsPos('${tr.id}', ${linked ? fensterPosId : 'null'})">✕</button>
     </td>`;
   tbody.appendChild(tr);
   kartenVorbereiten(tr);
+  isInitAuswahl(id);
   // Set Z-Maß if known from Hersteller
   if (zMassAuto !== null) {
     const zEl = document.getElementById('is-zMass-' + id);
@@ -3595,10 +3604,10 @@ function getLichtesMass(fid) {
 }
 
 // Aktuell gewählte Abzugs-/Zuschlagsdaten aus der allgemeinen Karte
-function getIsAbzugData() {
+function getIsAbzugData(id) {
   const herst   = document.getElementById('is-g-hersteller')?.value || '';
-  const modell  = document.getElementById('is-g-modell')?.value || '';
-  const montage = document.getElementById('is-g-montage')?.value || '';
+  const modell  = document.getElementById('is-modell-' + id)?.value || '';
+  const montage = document.getElementById('is-montage-' + id)?.value || '';
   if (!herst || !modell) return null;
   return DATA.is.abzug[herst + '|' + modell + '|' + montage]
       || DATA.is.abzug[herst + '|' + modell]
@@ -3607,12 +3616,12 @@ function getIsAbzugData() {
 
 // Setzt Zuschlag/Abzug + Prüf-Markierung einer Position
 function applyIsZuschlag(id) {
-  const d = getIsAbzugData();
+  const d = getIsAbzugData(id);
   const bEl = document.getElementById('is-abzugB-' + id);
   const hEl = document.getElementById('is-abzugH-' + id);
   const wEl = document.getElementById('is-warn-' + id);
   const herst  = document.getElementById('is-g-hersteller')?.value || '';
-  const modell = document.getElementById('is-g-modell')?.value || '';
+  const modell = document.getElementById('is-modell-' + id)?.value || '';
   if (d) {
     // Zuschlag je Richtung – Maße mit abweichendem Bezug bleiben leer und werden markiert
     if (bEl) bEl.value = d.b != null ? +(d.b / 10).toFixed(1) : 0;
@@ -3650,7 +3659,7 @@ function applyIsZuschlag(id) {
                         + (isLinked(id) ? isRahmenHinweis() : '');
       } else {
         wEl.style.color = '#c0392b';
-        wEl.textContent = isLinked(id) ? isRahmenHinweis().replace(/^ · /, '') : '';
+        wEl.textContent = (herst ? 'Art, Modell und Montageart wählen' : 'Erst Hersteller wählen') + (isLinked(id) ? isRahmenHinweis() : '');
       }
     }
   }
@@ -3998,8 +4007,9 @@ const K_CFG = {
   // Insektenschutz
   'islbl': ['Fenster-Pos. / Raum', 1, 'vk'], 'is-raum': ['Raum / Bezeichnung', 1, 'vk'],
   'is-bestB': ['Bestellmaß Breite (cm)', 2, 'ks'], 'is-bestH': ['Bestellmaß Höhe (cm)', 3, 'ks'],
-  'is-basisB': ['Lichte Breite (cm)', 4, 's'], 'is-abzugB': ['Zuschlag Breite (cm)', 5, 's'], 'is-basisH': ['Lichte Höhe (cm)', 6, 's'], 'is-abzugH': ['Zuschlag Höhe (cm)', 7, 's'],
-  'is-zMass': ['Z-Maß (mm)', 8, 's'], 'is-gaze': ['Gaze', 9, 'v'], 'is-warn': ['Hinweis', 10, 'v'],
+  'is-art': ['Art', 4, 'v'], 'is-modell': ['Modell', 5, 'v'], 'is-montage': ['Montageart / Variante', 6, 'v'],
+  'is-basisB': ['Lichte Breite (cm)', 7, 's'], 'is-abzugB': ['Zuschlag Breite (cm)', 8, 's'], 'is-basisH': ['Lichte Höhe (cm)', 9, 's'], 'is-abzugH': ['Zuschlag Höhe (cm)', 10, 's'],
+  'is-zMass': ['Z-Maß (mm)', 11, 's'], 'is-gaze': ['Gaze', 12, 'v'], 'is-warn': ['Hinweis', 13, 'v'],
   // Zimmertüren
   'zt-raum': ['Position / Raum', 1, 'vk'], 'zt-b': ['Breite (cm)', 2, 'ks'], 'zt-h': ['Höhe (cm)', 3, 'ks'], 'zt-dreh': ['Drehrichtung', 4, 'v'],
   'zt-wand': ['Wandstärke (cm)', 5, 's'], 'zt-licht': ['Lichtausschnitt', 6, 's'], 'zt-drueck': ['Drücker', 7, 's'], 'zt-drmodell': ['Drückermodell', 8, 's'], 'zt-hint': ['Hinweis', 9, 'v'],
@@ -4059,7 +4069,9 @@ ansichtAnwenden();
 // ─── Fotos ───────────────────────────────────────────────────────────────────
 const FOTOS = {};   // Schlüssel 'f<id>' | 'ht<id>' | 'zt<id>' → [dataURL, …]
 function fotoZelle(key) {
-  return '<div class="foto-zelle"><label class="foto-btn" title="Foto aufnehmen oder auswählen">📷'
+  return '<div class="foto-zelle"><label class="foto-btn" title="Foto mit der Kamera aufnehmen (mehrfach tippen für weitere Fotos)">📷'
+    + '<input type="file" accept="image/*" capture="environment" hidden onchange="fotoAdd(\'' + key + '\', this)"></label>'
+    + '<label class="foto-btn" title="Mehrere Fotos aus der Galerie auswählen">🖼'
     + '<input type="file" accept="image/*" multiple hidden onchange="fotoAdd(\'' + key + '\', this)"></label>'
     + '<span id="fotot-' + key + '" style="display:contents;"></span></div>';
 }
@@ -4136,7 +4148,7 @@ function sbErfassen() {
   return { v: 1, gespeichert: new Date().toISOString(), kunde: general['g-kunde'] || '',
     zaehler: { f: fCount, ht: htCount, rl: rlCount, is: isCount, zt: ztCount },
     zeilen: { f: ids('tr.fpos', 'fpos-'), ht: ids('tr.htpos', 'htpos-'), zt: ids('tr.ztpos', 'ztpos-'), rl, is },
-    general, zeilenFelder, fotos: JSON.parse(JSON.stringify(FOTOS)) };
+    general, zeilenFelder, fotos: JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(FOTOS).filter(([k]) => document.getElementById('fotot-' + k))))) };
 }
 
 function sbSetze(id, val, mitEvents) {
@@ -4161,6 +4173,8 @@ function sbWiederherstellen(S) {
     for (const r of S.zeilen.rl)  { rlCount = r.id - 1; addRlPos(r.fid); }
     for (const r of S.zeilen.is)  { isCount = r.id - 1; addIsPos(r.fid); }
     fCount = S.zaehler.f; htCount = S.zaehler.ht; rlCount = S.zaehler.rl; isCount = S.zaehler.is; ztCount = S.zaehler.zt;
+    // ältere Dateien: Art/Modell/Montageart des Insektenschutzes galten für alle Positionen gemeinsam
+    for (const r of S.zeilen.is) for (const k of ['art', 'modell', 'montage']) { const g = S.general['is-g-' + k]; if (g && S.zeilenFelder['is-' + k + '-' + r.id] === undefined) S.zeilenFelder['is-' + k + '-' + r.id] = g; }
     apply(S.zeilenFelder, true); apply(S.zeilenFelder, true);
     apply(S.general, true);     apply(S.zeilenFelder, true);
     apply(S.general, false);    apply(S.zeilenFelder, false);       // zuletzt ohne Ereignisse: Werte endgültig setzen
