@@ -168,7 +168,14 @@
     .foto-zelle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 96px; }
     .foto-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; background: #e8edf3; font-size: 20px; cursor: pointer; }
     .foto-btn:active { background: #cfd8e6; }
-    .foto-th { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #c5ccd8; cursor: pointer; }
+    .foto-btn { border: 0; }
+    #foto-kamera { position: fixed; inset: 0; z-index: 10002; background: #000; display: flex; flex-direction: column; }
+    #foto-kamera.blitz { background: #fff; }
+    #foto-kamera video { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+    .fk-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); color: #fff; font-size: 15px; }
+    .fk-ausl { width: 68px; height: 68px; border-radius: 50%; border: 5px solid #fff; background: #e53935; }
+    .fk-ausl:active { background: #b71c1c; }
+    .foto-th {width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #c5ccd8; cursor: pointer; }
     #foto-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 12px; }
     #foto-lightbox img { max-width: 96vw; max-height: 78vh; border-radius: 6px; }
     #foto-lightbox .fl-bar { display: flex; gap: 10px; }
@@ -519,7 +526,6 @@
             <th class="col-md" rowspan="2">Griff / Drücker<br>außen</th>
             <th class="col-sm" rowspan="2">Ver-<br>glasung</th>
             <th class="col-md" rowspan="2">Schloss /<br>Verriegelung</th>
-            <th class="col-sm" rowspan="2">PZ</th>
             <th class="col-xl" rowspan="2">Hinweis</th>
             <th class="col-md" rowspan="2">📷 Foto</th>
             <th class="col-sm" rowspan="2">Stück</th>
@@ -2904,7 +2910,6 @@ function addHaustuerPos() {
       </select>
     </td>
     <td>${buildHtHardwareSelect('ht-schloss-' + id, 'schloss')}</td>
-    <td class="col-sm"><input type="text" id="ht-pz-${id}" placeholder="PZ-Maß"></td>
     <td class="col-xl"><input type="text" id="ht-hint-${id}" placeholder="Hinweis"></td>
     <td class="col-md">${fotoZelle('ht' + id)}</td>
     <td class="col-sm"><input type="number" min="1" step="1" value="1" id="ht-menge-${id}" style="width:48px;text-align:center;"></td>
@@ -3993,7 +3998,7 @@ document.addEventListener('change', e => {
 const K_CFG = {
   'f-raum': ['Position / Raum', 1, 'vk'], 'f-art': ['Öffnungsart', 2, 'vk'], 'f-auftcell': ['Aufteilung', 3, 'v'],
   'f-iB': ['Innenmaß Breite (cm)', 4, 's'], 'f-iH': ['Innenmaß Höhe (cm)', 5, 's'], 'f-aB': ['Außenmaß Breite (cm)', 6, 's'], 'f-aH': ['Außenmaß Höhe (cm)', 7, 's'],
-  'f-bestB': ['Bestellmaß Breite', 8, 'ks'], 'f-bestH': ['Bestellmaß Höhe', 9, 'ks'], 'f-ampel': ['Prüfung', 10, 'ks'], 'f-pruef': ['Verbreiterung / Sohlbank', 11, 'v'],
+  'f-bestB': ['Bestellmaß Breite', 96, 'ks'], 'f-bestH': ['Bestellmaß Höhe', 97, 'ks'], 'f-ampel': ['Prüfung', 98, 'ks'], 'f-pruef': ['Verbreiterung / Sohlbank', 99, 'v'],
   'f-massIA': ['Maß innen/außen (cm)', 12, 's'], 'f-massAI': ['Maß außen/innen (cm)', 13, 's'], 'f-sohlbi': ['Sohlbank innen (cm)', 14, 's'], 'f-sohlba': ['Sohlbank außen (cm)', 15, 's'],
   'f-einbau': ['Einbau', 16, ''], 'f-sbprof': ['Fensterbankanschluss', 17, 'v'],
   'f-vgl': ['Verglasung', 20, 'v'], 'f-orn': ['Ornamentglas', 21, 'v'],
@@ -4004,20 +4009,20 @@ const K_CFG = {
   // Haustüren
   'ht-auft': ['Türart / Aufteilung', 2, 'vk'], 'ht-anschlag': ['Anschlag', 3, ''], 'ht-oeff': ['Öffnungsrichtung', 4, ''],
   'ht-iB': ['Innenmaß Breite (cm)', 5, 's'], 'ht-iH': ['Innenmaß Höhe (cm)', 6, 's'], 'ht-aB': ['Außenmaß Breite (cm)', 7, 's'], 'ht-aH': ['Außenmaß Höhe (cm)', 8, 's'],
-  'ht-bestB': ['Bestellmaß Breite', 9, 'ks'], 'ht-bestH': ['Bestellmaß Höhe', 10, 'ks'], 'ht-ampel': ['Prüfung', 11, 'ks'], 'ht-pruef': ['Verbreiterung / Schwelle', 12, 'v'],
+  'ht-bestB': ['Bestellmaß Breite', 96, 'ks'], 'ht-bestH': ['Bestellmaß Höhe', 97, 'ks'], 'ht-ampel': ['Prüfung', 98, 'ks'], 'ht-pruef': ['Verbreiterung / Schwelle', 99, 'v'],
   'ht-massIA': ['Maß innen/außen (cm)', 13, 's'], 'ht-massAI': ['Maß außen/innen (cm)', 14, 's'], 'ht-sohlbi': ['Sohlbank innen (cm)', 15, 's'], 'ht-sohlba': ['Sohlbank außen (cm)', 16, 's'],
   'ht-einbau': ['Einbau', 17, ''], 'ht-kopp': ['Kopplung', 18, 'v'],
   'ht-fuellung': ['Füllung', 20, 'v'], 'ht-fuellung-artnr': ['Art.-Nr. Füllung', 21, ''], 'ht-griffi': ['Griff / Drücker innen', 22, ''], 'ht-griffa': ['Griff / Drücker außen', 23, ''],
-  'ht-vgl': ['Verglasung', 24, 'v'], 'ht-schloss': ['Schloss / Verriegelung', 25, 'v'], 'ht-pz': ['PZ', 26, ''], 'ht-hint': ['Hinweis', 27, 'v'], 'ht-menge': ['Stück', 95, ''],
+  'ht-vgl': ['Verglasung', 24, 'v'], 'ht-schloss': ['Schloss / Verriegelung', 25, 'v'], 'ht-hint': ['Hinweis', 27, 'v'], 'ht-menge': ['Stück', 95, ''],
   // Rollladen
   'rllbl': ['Fenster-Pos. / Raum', 1, 'vk'], 'rl-raum': ['Raum / Bezeichnung', 1, 'vk'],
-  'rl-bestB': ['Bestellmaß Breite (cm)', 2, 'ks'], 'rl-bestH': ['Bestellmaß Höhe (cm)', 3, 'ks'],
+  'rl-bestB': ['Bestellmaß Breite (cm)', 96, 'ks'], 'rl-bestH': ['Bestellmaß Höhe (cm)', 97, 'ks'],
   'rl-mB': ['Breite (cm)', 4, 's'], 'rl-mH': ['Höhe (cm)', 5, 's'],
   'rl-montage': ['Montageart', 6, 'v'], 'rl-kasten': ['Kastengröße', 7, ''], 'rl-kastenH': ['Kastenhöhe (cm)', 8, 's'], 'rl-gesamtH': ['Gesamthöhe (cm)', 9, 's'],
   'rl-fuehr': ['Führungsschiene', 10, 'v'], 'rl-antrieb': ['Antrieb', 11, ''], 'rl-bedienung': ['Bedienung', 12, ''], 'rl-warn': ['Hinweis / Warnung', 13, 'vk'],
   // Insektenschutz
   'islbl': ['Fenster-Pos. / Raum', 1, 'vk'], 'is-raum': ['Raum / Bezeichnung', 1, 'vk'],
-  'is-bestB': ['Bestellmaß Breite (cm)', 2, 'ks'], 'is-bestH': ['Bestellmaß Höhe (cm)', 3, 'ks'],
+  'is-bestB': ['Bestellmaß Breite (cm)', 96, 'ks'], 'is-bestH': ['Bestellmaß Höhe (cm)', 97, 'ks'],
   'is-art': ['Art', 4, 'v'], 'is-modell': ['Modell', 5, 'v'], 'is-montage': ['Montageart / Variante', 6, 'v'],
   'is-basisB': ['Lichte Breite (cm)', 7, 's'], 'is-abzugB': ['Zuschlag Breite (cm)', 8, 's'], 'is-basisH': ['Lichte Höhe (cm)', 9, 's'], 'is-abzugH': ['Zuschlag Höhe (cm)', 10, 's'],
   'is-zMass': ['Z-Maß (mm)', 11, 's'], 'is-gaze': ['Gaze', 12, 'v'], 'is-warn': ['Hinweis', 13, 'v'],
@@ -4080,11 +4085,34 @@ ansichtAnwenden();
 // ─── Fotos ───────────────────────────────────────────────────────────────────
 const FOTOS = {};   // Schlüssel 'f<id>' | 'ht<id>' | 'zt<id>' → [dataURL, …]
 function fotoZelle(key) {
-  return '<div class="foto-zelle"><label class="foto-btn" title="Foto mit der Kamera aufnehmen (mehrfach tippen für weitere Fotos)">📷'
-    + '<input type="file" accept="image/*" capture="environment" hidden onchange="fotoAdd(\'' + key + '\', this)"></label>'
-    + '<label class="foto-btn" title="Mehrere Fotos aus der Galerie auswählen">🖼'
-    + '<input type="file" accept="image/*" multiple hidden onchange="fotoAdd(\'' + key + '\', this)"></label>'
+  return '<div class="foto-zelle"><button type="button" class="foto-btn" title="Kamera öffnen und mehrere Fotos hintereinander aufnehmen" onclick="fotoKamera(\'' + key + '\')">📷</button>'
+    + '<input type="file" accept="image/*" capture="environment" hidden id="fotoin-' + key + '" onchange="fotoAdd(\'' + key + '\', this)">'
     + '<span id="fotot-' + key + '" style="display:contents;"></span></div>';
+}
+// Live-Kamera: mehrere Fotos hintereinander aufnehmen, „Fertig“ schließt. Ohne Kamerazugriff: Kamera-App des Geräts (ein Foto je Tippen).
+let KAM = null;
+async function fotoKamera(key) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { document.getElementById('fotoin-' + key).click(); return; }
+  let strom;
+  try { strom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); }
+  catch (e) { document.getElementById('fotoin-' + key).click(); return; }
+  const lb = document.createElement('div'); lb.id = 'foto-kamera';
+  lb.innerHTML = '<video autoplay playsinline muted></video>'
+    + '<div class="fk-bar"><span id="fk-zahl">0 Fotos</span><button type="button" class="fk-ausl" aria-label="Foto aufnehmen"></button>'
+    + '<button type="button" class="btn btn-primary" id="fk-fertig">Fertig</button></div>';
+  document.body.appendChild(lb);
+  const v = lb.querySelector('video'); v.srcObject = strom;
+  KAM = { strom, lb, n: 0 };
+  lb.querySelector('.fk-ausl').onclick = () => {
+    if (!v.videoWidth) return;
+    const s = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    (FOTOS[key] = FOTOS[key] || []).push(c.toDataURL('image/jpeg', 0.72));
+    KAM.n++; lb.querySelector('#fk-zahl').textContent = KAM.n + (KAM.n === 1 ? ' Foto' : ' Fotos');
+    lb.classList.add('blitz'); setTimeout(() => lb.classList.remove('blitz'), 120);
+  };
+  lb.querySelector('#fk-fertig').onclick = () => { KAM.strom.getTracks().forEach(t => t.stop()); lb.remove(); KAM = null; fotoRender(key); };
 }
 function fotoVerkleinern(file) {
   return new Promise((ok, fail) => {
